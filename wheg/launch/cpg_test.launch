@@ -1,0 +1,5 @@
+<launch>
+  <!-- launch CPG node and stack nodes #TODO -->
+  <node pkg="wheg" type="controller" name="wheg1">
+  </node>
+</launch>

@@ -1,7 +1,6 @@
 import numpy as np
-import tkinter as tk
 import matplotlib.pyplot as plt
-from CPG_FIC import CPG_FIC
+from wheg.src.classes.CPG_FIC import CPG_FIC
 
 # # Tkinter setup
 # root = tk.Tk()

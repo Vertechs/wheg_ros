@@ -1,7 +1,7 @@
 import numpy as np
-from whegs import WhegFourBar
+from wheg.src.classes.whegs import WhegFourBar
 import matplotlib.pyplot as plt
-from CPG.CPG_FIC import CPG_FIC
+from wheg.src.classes.CPG_FIC import CPG_FIC
 
 parameters = [5,15.0,45.521,
               30.0,65.0,62.337,

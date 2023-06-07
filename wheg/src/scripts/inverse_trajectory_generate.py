@@ -1,5 +1,5 @@
 import numpy as np
-from whegs import WhegFourBar
+from wheg.src.classes.whegs import WhegFourBar
 import matplotlib.pyplot as plt
 
 
@@ -10,7 +10,7 @@ parameters = [5,15.0,45.521,
 # x = 107.7
 # y = -45.4 - 8
 
-whl1 = WhegFourBar(parameters)
+whl1 = WhegFourBar(parameters,"wheg")
 
 steps = 100
 rotation = 5
