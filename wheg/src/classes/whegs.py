@@ -4,7 +4,7 @@ import math
 # Four bar mechanism with separately driven inner and outer hub
 # assuming crossed links in closed position
 class WhegFourBar:
-    def __init__(self, param, name):
+    def __init__(self, param, name="wheg"):
         self.name = name
 
         # mechanical parameters

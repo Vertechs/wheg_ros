@@ -1,2 +1,7 @@
 # wheg_ros
-Wheel leg robot control on ROS
+
+---
+
+ROS packages for wheel-leg (wheg) robots
+
+
