@@ -1,7 +1,7 @@
+import numpy
 import numpy as np
 from wheg.src.classes.whegs import WhegFourBar
 import matplotlib.pyplot as plt
-
 
 parameters = [5,15.0,45.521,
               30.0,65.0,62.337,
@@ -22,6 +22,7 @@ trajectory = np.zeros((2, rotation * steps))
 
 for i in range(rotation):
     x = x_start
+
     y = -com_height
     for j in range(steps):
 
@@ -33,6 +34,8 @@ for i in range(rotation):
         ax,ay = whl1.calc_single_FK(whl1.phi1, whl1.phi2)
 
         x += -2 * x_start/steps
+
+numpy.savetxt("traj.csv", np.deg2rad(trajectory), delimiter=",")
 
 plt.figure(1)
 plt.plot(trajectory.T)
