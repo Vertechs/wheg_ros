@@ -160,7 +160,7 @@ while True:
             if vel_phi < 1e-2: # arbitrary exit to get more inputs, should switch to position hold
                 go = False
 
-            # break if been in ctrl loop too long, **remove when running as node
+            # get new target after enough time has passed
             if ctrl_time > 1.0:
                 go = False # using flag in case more to execute later in loop
 
