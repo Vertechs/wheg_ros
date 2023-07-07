@@ -16,7 +16,7 @@ def pos_command(phis):
 
 
 def odrive_pos_sub():
-    ID =
+    ID = '>??'
     rospy.init_node(ID)
 
     rospy.Subscriber("motors", float64MultiArray, pos_command())
