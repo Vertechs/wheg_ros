@@ -2,14 +2,21 @@ import odrive
 from odrive.enums import *
 import time
 import math
+import configparser
+import os.path
 
-Numbers = ["208839824D4D","205839844D4D"]
+config = configparser.ConfigParser()
+cf_path = os.path.dirname(os.path.realpath(__file__))+'/../robot_config.ini'
+config.read(cf_path)
 
-for s in Numbers:
+serial_numbers_str = config.get("Hardware","odrive serial numbers")
+serial_numbers = serial_numbers_str.replace(' ','').split(',')
+
+for s in serial_numbers:
     try:
         drv = odrive.find_any(serial_number=s,timeout=20)
     except:
-        print("Coudlnt find ", s)
+        print("Couldnt find ", s)
         continue
     
     print("Connected to ", drv.serial_number)
