@@ -11,6 +11,7 @@ np.set_printoptions(precision=3,suppress=True)
 
 # input mode passthrough
 # velocity control, maybe feedforward torque when known TODO
+# native interface gives >50ms latency for 4 axis, not usable for closed loop
 
 ## Load config file and get drive serial numbers
 config = configparser.ConfigParser()

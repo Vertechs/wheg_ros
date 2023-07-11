@@ -1,6 +1,6 @@
 import numpy
 import numpy as np
-from wheg.src.classes.whegs import WhegFourBar
+from wheg.wheg_utils.classes.whegs import WhegFourBar
 import matplotlib.pyplot as plt
 
 parameters = [5,15.0,45.521,
