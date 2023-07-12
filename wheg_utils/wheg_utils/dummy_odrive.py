@@ -38,3 +38,9 @@ class odriveDummy():
         self.serial_number = SN
         self.axis1 = axisDummy()
         self.axis0 = axisDummy()
+
+    # to fit with serial ascii interface
+    def write(self, a):
+        return 1
+    def read(self,n):
+        return [None] * n
