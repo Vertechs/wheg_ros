@@ -7,6 +7,35 @@ import configparser
 import os.path
 import json
 import serial
+import serial.tools.list_ports
+import enum
+
+def write_parameter(obj, name, value):
+    # check if using odrive enums
+    if isinstance(value, enum.Enum):
+        value = value.value
+
+    # construct command as string
+    cmd = "w " + str(name) + ' ' + str(value) + '\r'
+
+    # write to odrive
+    obj.write(cmd.encode())
+    if obj.in_waiting:
+        print("parameter write error for: \n",cmd)
+        return obj.readline().decode().rstrip('\r\n')
+
+    # request read of new value
+    cmd = "r " + str(name) + '\r'
+    obj.write(cmd.encode())
+    resp = obj.readline().decode().rstrip('\r\n')
+    return resp
+
+def read_parameter(obj, name):
+    cmd = "r " + str(name) + '\r'
+    obj.write(cmd.encode())
+    resp = obj.readline().decode().rstrip('\r\n')
+    return resp
+
 
 np.set_printoptions(precision=3,suppress=True)
 
@@ -18,7 +47,7 @@ config = configparser.ConfigParser()
 cf_path = os.path.dirname(os.path.realpath(__file__))+'/../robot_config.ini'
 config.read(cf_path)
 
-serial_numbers_str = config.get("Hardware","odrive serial numbers")
+serial_numbers_str = config.get("Hardware","odrive serial numbers int")
 serial_numbers = serial_numbers_str.replace(' ','').split(',')
 
 ## load mechanical config
@@ -63,17 +92,31 @@ K_phase = 2 # rad/s per rad of error
 K1 = np.eye(4)*K_deploy # phase position gains
 K2 = np.diag([]) # deploy amount gains assume..?
 
+
 # get all odrives connected to system
 if platform.system() == 'Linux':
     print("Connecting to drives...")
-    ## connect to odrives in order of serial numbers list
-    drives = []
-    for SN in serial_numbers:
-        drv = odrive.find_any(serial_number=SN,timeout=10)
-        drives.append(drv)
-        print("Odrive ",SN,":")
-        odrive.utils.dump_errors(drv)
-        print("voltage: ", drv.vbus_voltage)
+
+    # get list of active usb devices
+    ports = serial.tools.list_ports.comports()
+
+    # populate drive list with empty serial objects
+    drives = [serial.Serial(port=None)]*len(serial_numbers)
+
+    # check each port against loaded serial numbers from config
+    for port in ports:
+        # check if port is an odrive before writing
+        if "ODrive" in port.product:
+            print("Trying",port.name,end='')
+            drv_serial = serial.Serial(port.device, write_timeout=0.1)
+            drv_sn = read_parameter(drv_serial,'serial_number')
+            print(", found:",drv_sn)
+            try:
+                drv_index = serial_numbers.index(drv_sn)
+                drives[drv_index] = drv_serial
+            except:
+                print(drv_sn,"not in list, skipping")
+
 
 else: # assume running in test environment without drives connected
     from wheg_utils.dummy_odrive import odriveDummy
@@ -82,24 +125,23 @@ else: # assume running in test environment without drives connected
         drv = odriveDummy(SN)
         drives.append(drv)
 
-# set up list of motor axes
-axes = []
-for drive in drives:
-    axes.append(drive.axis0)
-    axes.append(drive.axis1)
-
-N_AX = len(axes)
+# axis is a tuple with drive index and motor index
+N_AX = len(drives)*2
+axes = [(x//2,int(x%2==0)) for x in range(N_AX)]
 
 # setup axis control and input modes
 for axis in axes:
-    axis.requested_state = onum.AxisState.IDLE
-    axis.controller.config.control_mode = onum.ControlMode.VELOCITY_CONTROL
-    axis.controller.config.input_mode = onum.InputMode.PASSTHROUGH
+    ax_s = 'axis'+str(axis[1])+'.' # need 'axis0' or 'axis1' for parameter writing
+    write_parameter(drives[axis[0]], ax_s+'requested_state', onum.AxisState.IDLE)
+    write_parameter(drives[axis[0]], ax_s+'controller.config.control_mode', onum.ControlMode.VELOCITY_CONTROL)
+    write_parameter(drives[axis[0]], ax_s+'controller.config.input_mode', onum.InputMode.PASSTHROUGH)
 
 cmd = input("\nReset to zero position (y/n) ")
 if cmd == 'y':
     for axis in axes:
-        axis.encoder.set_linear_count(0)
+        print(write_parameter(drives[axis[0]], 'axis'+str(axis[1])+'.encoder.set_linear_count', 0))
+
+quit()
 
 for axis in axes:
     axis.controller.input_vel = 0.0
@@ -215,5 +257,6 @@ while True:
 
 ## always set axes to idle when exiting
 print("idling")
-for ax in axes:
-    ax.requested_state = onum.AxisState.IDLE
+for axis in axes:
+    ax_s = 'axis' + str(axis[1]) + '.'
+    write_parameter(drives[axis[0]], ax_s+'requested_state', onum.AxisState.IDLE)

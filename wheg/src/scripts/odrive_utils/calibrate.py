@@ -9,7 +9,7 @@ config = configparser.ConfigParser()
 cf_path = os.path.dirname(os.path.realpath(__file__))+'/../robot_config.ini'
 config.read(cf_path)
 
-serial_numbers_str = config.get("Hardware","odrive serial numbers")
+serial_numbers_str = config.get("Hardware","odrive serial numbers hex")
 serial_numbers = serial_numbers_str.replace(' ','').split(',')
 
 for s in serial_numbers:
