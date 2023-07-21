@@ -4,43 +4,69 @@ from odrive.enums import *
 import time
 import math
 import rospy
-from std_msgs.msg import float64MultiArray
+from std_msgs.msg import Float32MultiArray, String
+import can
+import cantools
+import os
 
-## Setup and calibrate odrive
-## connect with native protocol for better access
-## Run node on motor topic to take pos commands
+## publish odrive encoder positions, recieved over CAN bus
 
-def pos_command(phis):
-    # expect 8 long array for all phi values
-    rospy.loginfo(rospy.get_caller_id() + "sent to odrive")
+pubRate = 10 # publishing frequency (Hz)
 
+def pos_publisher(axIDs = None):
+    
+    # initialize publisher node
+    rospy.loginfo("Starting publisher node")
+    pub = rospy.Publisher("encoder_raw", Float32MultiArray, queue_size = 10)
+    rospy.init_node("encoder_pub",anonymous=True)
+    rate = rospy.Rate(pubRate)
+    
+    # initialize can bus
+    bus = can.Bus("can0",bustype="socketcan")
+    rospy.loginfo("CAN bus started: " + bus.channel_info)
+    
+    # axis CAN ids in order
+    if not axIDs:    
+        axIDs = [0xA,0xB,0xC,0xD]
+    n_ax = len(axIDs)
 
-def odrive_pos_sub():
-    ID = '>??'
-    rospy.init_node(ID)
-
-    rospy.Subscriber("motors", float64MultiArray, pos_command())
-
-    # spin() simply keeps python from exiting until this node is stopped
-    rospy.spin()
+    # initalize can message database, assuming run from package root
+    canDB = cantools.database.load_file("configs/odrive-cansimple.dbc") 
+    
+    # list of can IDs to watch (encoder estimates should be 0x09)
+    posIDs = [a << 5 | canDB.get_message_by_name('Get_Encoder_Estimates').frame_id for a in axIDs]
+    
+    # initialize data array
+    data = [float('nan')] * n_ax
+    pub_per  = 0.9 / pubRate   # time to spend waiting for CAN messages
+    
+    rospy.loginfo("Starting publishing loop")
+    while not rospy.is_shutdown():
+        t0 = time.monotonic()
+        
+        # scan for CAN messages, exit if running out of time for publishing rate
+        while time.monotonic()-t0 < pub_per:
+            msg = bus.recv()
+            
+            # check if arb ID matches encoder position command ID
+            if msg.arbitration_id & 0x1F == 0x09:
+                
+                # check against all axis IDs
+                for i in range(n_ax):
+                    if axIDs[i] == msg.arbitration_id >> 5:
+                        data[i] = canDB.decode_message('Get_Encoder_Estimates',msg.data)['Pos_Estimate']
+                
+        message = Float32MultiArray()
+        message.data = data    
+        pub.publish(message)
+        
+        rospy.loginfo(message)
+        
+        rate.sleep()
 
 
 if __name__ == '__main__':
-    drv = odrive.find_any()
-
-    odrive_pos_sub()
-
-
-
-
-print("Connected to ", drv.serial_number)
-
-odrive.utils.dump_errors(drv)
-
-print("Position (turns):")
-while drv.axis1.current_state == AXIS_STATE_IDLE and drv.axis0.current_state == AXIS_STATE_IDLE:
-    pos1 = drv.axis0.encoder.pos_estimate
-    pos2 = drv.axis1.encoder.pos_estimate
-    volt = drv.vbus_voltage
-
-    print("ax1:%.4f   ax2:%.4f   V:%.4f\r" % (pos1, pos2, volt), end="")
+    try:
+        pos_publisher()
+    except rospy.ROSInterruptException:
+        pass

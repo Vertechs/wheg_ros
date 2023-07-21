@@ -29,6 +29,18 @@ for s in serial_numbers:
     
     while drv.axis1.current_state != AXIS_STATE_IDLE and drv.axis0.current_state != AXIS_STATE_IDLE:
         time.sleep(.1)
+        
+    # Reset control mode and target so we can go into closed loop control
+    # CAN encoder estiamtes sent as all 0s untill axis goes into closed loop at least once
+    print("initializing estimator with closed loop control")
+    for ax in [drv.axis0,drv.axis1]:
+        ax.controller.config.control_mode = CONTROL_MODE_POSITION_CONTROL
+        ax.controller.input_pos = 0.0
+        ax.encoder.set_linear_count(0)
+        # closed loop control for ~10ms
+        ax.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+        time.sleep(0.01)
+        ax.requested_state = AXIS_STATE_IDLE
     
     odrive.utils.dump_errors(drv)
     
