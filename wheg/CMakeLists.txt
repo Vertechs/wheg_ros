@@ -161,6 +161,7 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
  src/nodes/odrive_pos.py
+ src/nodes/quad_controller_can.py
  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

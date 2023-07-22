@@ -37,7 +37,7 @@ def pos_publisher(axIDs = None):
     posIDs = [a << 5 | canDB.get_message_by_name('Get_Encoder_Estimates').frame_id for a in axIDs]
     
     # initialize data array
-    data = [float('nan')] * n_ax
+    mdata = [float('nan')] * n_ax
     pub_per  = 0.9 / pubRate   # time to spend waiting for CAN messages
     
     rospy.loginfo("Starting publishing loop")
@@ -54,10 +54,9 @@ def pos_publisher(axIDs = None):
                 # check against all axis IDs
                 for i in range(n_ax):
                     if axIDs[i] == msg.arbitration_id >> 5:
-                        data[i] = canDB.decode_message('Get_Encoder_Estimates',msg.data)['Pos_Estimate']
+                        mdata[i] = canDB.decode_message('Get_Encoder_Estimates',msg.data)['Pos_Estimate']
                 
-        message = Float32MultiArray()
-        message.data = data    
+        message = Float32MultiArray(data=mdata)
         pub.publish(message)
         
         rospy.loginfo(message)
