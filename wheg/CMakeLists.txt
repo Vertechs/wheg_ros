@@ -162,6 +162,9 @@ include_directories(
 catkin_install_python(PROGRAMS
  src/nodes/odrive_pos.py
  src/nodes/quad_controller_can.py
+ src/nodes/controller_switch.py
+ src/scripts/odrive_utils/calibrate.py
+ src/scripts/odrive_utils/reset.py
  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>wheg</name>
-  <version>0.1.0</version>
-  <description>Package for wheg robot control</description>
+  <version>0.1.1</version>
+  <description>Package for wheel-leg robot control</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
@@ -62,6 +62,10 @@
   <exec_depend>roscpp</exec_depend>
   <exec_depend>rospy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
+  <exec_depend>python-can</exec_depend>
+  <exec_depend>python-cantools-pip</exec_depend>
+  <exec_depend>python-numpy</exec_depend>
+  <exec_depend>python-odrive</exec_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

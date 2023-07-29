@@ -6,7 +6,8 @@ import configparser
 import os.path
 
 config = configparser.ConfigParser()
-cf_path = os.path.dirname(os.path.realpath(__file__))+'/../robot_config.ini'
+# cf_path = os.path.dirname(os.path.realpath(__file__))+'/../robot_config.ini'
+cf_path = "configs/robot_config.ini"
 config.read(cf_path)
 
 serial_numbers_str = config.get("Hardware","odrive serial numbers hex")
