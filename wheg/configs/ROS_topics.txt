@@ -20,3 +20,5 @@ planner_pos =
 
 drive_status = general status values for the odrives
 String : "vbus = XX.XXv | <list errors>"
+
+stop_btn = button to disable motors, only latch to disabled

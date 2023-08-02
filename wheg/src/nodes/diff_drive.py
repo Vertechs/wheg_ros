@@ -6,24 +6,19 @@ import rospy
 from std_msgs.msg import Float32MultiArray, UInt8MultiArray
 import struct
 
-## implementing "decoupled" proportional controller with velocity control signal
-## using native interface for setup, state commands, etc
-## using CAN for controller inputs and outputs TODO *raise encoder sending frequency
-## interfaces appear to be interoperable
-
-## controller and odrive comms run in single node per drive, or all drives??
-## node publishes wheel states and subscribes to wheel frame position commands (wheel pos, ext 0->1)
-## should also include torque feed forward from inverse kinematics
+## implementing velocity based differential drive controller
+## using instead of extending the running controller when
+## wheel position is not needed in the low level control loop
+## will free up CAN bus and ROS network bandwidth
+## take input as default geometry twist message
 
 ## TODO NOTES ##
-# threadsafe can bus and kernal filtering
-# maybe switch to ros timers, send and recieve can on seperate
-# maybe just switch to C
 
 AXIS_STATE_IDLE = bytearray([1,0,0,0,0,0,0,0])
 AXIS_STATE_CLOSED = bytearray([8,0,0,0,0,0,0,0])
 CI_VEL_MODE = bytearray([2,0,0,0,1,0,0,0])
 
+# populate axis IDs, 10 to 18 by default
 AXIS_ID_LIST = [a for a in range(0xA,0x12)]
 
 class PController():
@@ -40,38 +35,33 @@ class PController():
         # control flag set by subscriber on the controller swtich topic
         self.enabled = False
         
-        # target position array, in phase and extension amount per wheel 2*n_drives long
-        self.targets = [[0.0,0.0]]*(n_ax//2)
-        self.gains = [[1.0,2.0]]*(n_ax//2)
+        # target velocity array, one for each wheel
+        self.targets = [0.0]*(n_ax//2)
+        self.gains = [1.0]*(n_ax//2)
         
         # initialize lists of CAN message objects for sending, only set data in the control loop
-        # set_input_vel = 13, ctrl_mode = 11, ax_state = 07
         self.vel_msg = [can.Message(arbitration_id = 0x0D | a<<5, dlc = 8, 
                         is_extended_id = False) for a in axIDs]
-        # self.mode_msg = [can.Message(arbitration_id = 0x0B | a<<5, dlc = 8, 
-        #                 is_extended_id = False) for a in axIDs]
-        # self.state_msg = [can.Message(arbitration_id = 0x07 | a<<5, dlc = 8, 
-        #                 is_extended_id = False) for a in axIDs]
     
         #====ROS Setup====#
         # init ros node, not anonymous: should never have 2 instances using same bus
-        rospy.init_node("run_controller")
+        rospy.init_node("roll_controller")
         self.clock = rospy.Rate(100)
         
         # init subscribers
         self.switch_subscriber = rospy.Subscriber("switch_status", UInt8MultiArray, switch_callback)
-        self.pos_command_subscriber = rospy.Subscriber("run_pos_cmd", Float32MultiArray, set_pos_callback)
+        self.pos_command_subscriber = rospy.Subscriber("roll_vel_cmd", Float32MultiArray, vel_callback)
     
     
     def switch_callback(self, msg):
         # control mode is first int of status array
-        # 0 Disabled, 1 Running (this), 2 Walking, 3 Rolling
-        if msg.data[0] == 1:
+        # 0 Disabled, 1 Running , 2 Walking, 3 Rolling (this)
+        if msg.data[0] == 3:
             self.enabled = True
         else:
             self.enabled = False
             
-    def set_pos_callback(self, msg):
+    def vel_callback(self, msg):
         self.targets = msg.data
     
     def controller_loop(self):
@@ -104,10 +94,7 @@ class PController():
         
     def control_iteration(self,phi_hat,rx_bytes,rx_id,vel_cmd,trq_cmd):
 
-        # get encoder estimates, CAN bus is filtered at kernal already
-        # so grabbing the next n frames should always give n position packets
-        # but in an unknown order. We may lose a frame if an axis with a lower 
-        # ID# talks over it but rarely if they all send at the same frequency
+        # get data from CAN
         for i in range(n_ax):
             msg = self.bus.recv()
             rx_bytes[i] = msg.data[0:4]
@@ -118,9 +105,11 @@ class PController():
             d = (rx_id[i] >> 5) - ax_id_offset
             phi_hat[d] = struct.unpack('f',rx_bytes[i])[0]
 
-        # calculate controller response, motor phases decoupled into wheel
-        # phase and wheel extension so different gains can be used with each
-        # TODO use numpy and matrix math to maybe speed up, and merge with above loop?
+        # calculate controller response
+        # TODO
+        # may need velocity integrator to run here
+        # need some positional control to maintain collapsed wheel
+        
         for i in range(n_ax):
             v = phi_hat[i] * -10
             # TODO write math hardcoded to test speed difference
@@ -142,17 +131,13 @@ if __name__=='__main__':
     filters = [{"can_id":0x009, "can_mask":0x01F, "extended":False}]
     bus_pos_filter = can.interface.Bus(channel="can0",bustype="socketcan",can_filters=filters)
     
-    # load can database TODO remove, no longer used in networking
-    canDB = cantools.database.load_file("configs/odrive-cansimple.dbc")
-    
     # initialize the controller
     controller = PController(AXIS_ID_LIST, bus_pos_filter, canDB)
     
     try:
-        
         controller.controller_loop() # loop will block untill node shutdown
+    # always close bus regardless of exception
     except rospy.ROSInterruptException:
-        # always close bus regardless of exception
         print("closing can bus" + bus.channel_info)
         bus_pos_filter.shutdown()
     except:

@@ -3,6 +3,7 @@ import odrive
 import configparser
 import std_msgs.msg as ros_msg
 import odrive.enums as onum
+import time
 
 # A single node interfacing with all odrives over USB native interface to
 # change control modes and update configuration so as not to overload the CAN bus
@@ -56,6 +57,10 @@ class ControllerSwitch:
         # planner at end in case get interrupted during setup
         rospy.Subscriber("planner_mode", ros_msg.String, self.planner_callback)
         
+        # ros mobile topics for limited remote control
+        rospy.Subscriber("stop_btn", ros_msg.Bool, self.stop_callback)
+        self.stop_btn_val = False
+        
         rospy.loginfo("Setup complete")
     
     ### callback for messages published from path planning
@@ -91,7 +96,12 @@ class ControllerSwitch:
             self.start_walking()
         elif self.mode == 3:
             self.start_rolling()
-        
+            
+    # disable motors if stop button pushed
+    def stop_callback(self,msg):
+        if msg.data:
+            self.shutdown()
+
         
     # main loop only sends periodic status messages to controller nodes
     def main_loop(self):
@@ -111,6 +121,7 @@ class ControllerSwitch:
             self.clock.sleep()
         
         rospy.loginfo("Exiting")
+        self.shutdown()
         ### exit logic here
         
 
@@ -137,6 +148,7 @@ class ControllerSwitch:
             ax.controller.config.input_mode = onum.InputMode.PASSTHROUGH
             
             # set new odrive internal controller gains
+            # TODO figure out correct gains
             ax.controller.config.vel_gain = 0.04
             ax.controller.config.pos_gain = 20 # not used in vel control
             ax.controller.config.vel_integrator_gain = 0.01
@@ -145,11 +157,11 @@ class ControllerSwitch:
         # set CPG configs
         ### here
         
-    def start_walking():
+    def start_walking(self):
         rospy.loginfo("Switching to walking mode")
         for ax in self.axes:
             # hold current position when switching modes
-            ax.controller.input_pos = ax.encoder.estimate
+            ax.controller.input_pos = ax.encoder.pos_estimate
             ax.controller.config.control_mode = onum.ControlMode.POSITION_CONTROL
             ax.controller.config.input_mode = onum.InputMode.POS_FILTER
             
@@ -165,6 +177,12 @@ class ControllerSwitch:
             ax.controller.input_vel = 0.0 #??
             ax.controller.config.control_mode = onum.ControlMode.VELOCITY_CONTROL
             ax.controller.input_mode = onum.InputMode.PASSTHROUGH
+            
+            # set new odrive internal controller gains
+            ax.controller.config.vel_gain = 0.1
+            ax.controller.config.pos_gain = 20 
+            ax.controller.config.vel_integrator_gain = 0.0
+            ax.controller.config.vel_integrator_limit = 100.0
         
         
 
