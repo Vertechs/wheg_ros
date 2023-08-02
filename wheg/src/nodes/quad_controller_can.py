@@ -15,17 +15,16 @@ import struct
 ## node publishes wheel states and subscribes to wheel frame position commands (wheel pos, ext 0->1)
 ## should also include torque feed forward from inverse kinematics
 
-## TODO all wheels on one node and IK above, or IK and comms in node per wheel?
-# node for all four wheels maybe easier to get estimates quickly
-
-# TODO, threadsafe can bus and kernal filtering
-# TODO, maybe switch to ros timers, send and recieve can on seperate
-# TODO, just switch to C
+## TODO NOTES ##
+# threadsafe can bus and kernal filtering
+# maybe switch to ros timers, send and recieve can on seperate
+# maybe just switch to C
 
 AXIS_STATE_IDLE = bytearray([1,0,0,0,0,0,0,0])
 AXIS_STATE_CLOSED = bytearray([8,0,0,0,0,0,0,0])
 CI_VEL_MODE = bytearray([2,0,0,0,1,0,0,0])
 
+AXIS_ID_LIST = [a for a in range(0xA,0x12)]
 
 class PController():
     def __init__(axIDs,pos_filtered_bus,canDB):
@@ -46,10 +45,13 @@ class PController():
         self.gains = [[1.0,2.0]]*n_ax
         
         # initialize lists of CAN message objects for sending, only set data in the control loop
-        # set_input_vel = 0x13, ctrl_mode = 0x11, ax_state = 0x07
-        self.vel_msg = [can.Message(arbitration_id = 0x0D | a<<5, dlc = 8, is_extended_id = False) for a in axIDs]
-        #self.mode_msg = [can.Message(arbitration_id = 0x0B | a<<5, dlc = 8, is_extended_id = False) for a in axIDs]
-        #self.state_msg = [can.Message(arbitration_id = 0x07 | a<<5, dlc = 8, is_extended_id = False) for a in axIDs]
+        # set_input_vel = 13, ctrl_mode = 11, ax_state = 07
+        self.vel_msg = [can.Message(arbitration_id = 0x0D | a<<5, dlc = 8, 
+                        is_extended_id = False) for a in axIDs]
+        # self.mode_msg = [can.Message(arbitration_id = 0x0B | a<<5, dlc = 8, 
+        #                 is_extended_id = False) for a in axIDs]
+        # self.state_msg = [can.Message(arbitration_id = 0x07 | a<<5, dlc = 8, 
+        #                 is_extended_id = False) for a in axIDs]
     
         #====ROS Setup====#
         # init ros node, not anonymous: should never have 2 instances using same bus
@@ -57,20 +59,20 @@ class PController():
         self.clock = rospy.Rate(100)
         
         # init subscribers
-        self.switch_subscriber("switch_status", UInt8MultiArray, switch_callback)
-        self.pos_command_subscriber("wheel_pos_cmd", Float32MultiArray, set_pos_callback)
+        self.switch_subscriber = rospy.Subscriber("switch_status", UInt8MultiArray, switch_callback)
+        self.pos_command_subscriber = rospy.Subscriber("run_pos_cmd", Float32MultiArray, set_pos_callback)
     
     
     def switch_callback(self, msg):
         # control mode is first int of status array
-        # 0=Disabled, 1=Extension controller (this), 2=Positional
-        if control_mode == 1:
+        # 0 Disabled, 1 Running (this), 2 Walking, 3 Rolling
+        if msg.data[0] == 1:
             self.enabled = True
-            rospy.sleep(0.01) # TODO test if needed
         else:
             self.enabled = False
             
     def set_pos_callback(self, msg):
+        self.targets = msg.data
     
     def controller_loop(self):
         
@@ -84,6 +86,7 @@ class PController():
         while not rospy.is_shutdown():
             if self.enabled:
                 self.control_iteration(self,phi_hat,rx_bytes,rx_id,vel_cmd,trq_cmd)
+            # must sleep some for subscriber functions to be called
             self.clock.sleep()
             
         rospy.loginfo("shutting down")

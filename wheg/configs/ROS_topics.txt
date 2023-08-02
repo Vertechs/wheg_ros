@@ -1,0 +1,22 @@
+# TODO move this to readme once all confirmed
+[Topics]
+
+switch_status = current selected controller and error statuses? (move to string message to limit message length)
+Uint8MultiArray : [<control mode>]
+control mode : 0 = disabled, 1 = running, 2 = walking, 3 = rolling
+
+step_pos = desired position of contacting leg for each wheel
+StepArray_msg : [float32, float31, int32] : [[x,z,p]*n_wheel]
+x,z,p : x z position of contact and incrementing spoke offset
+
+run_pos = desired phase and extension of each wheel
+Float32MultiArray : [[theta,ext] * n_wheel]
+theta = phase of wheel, ext = extension amount [0->1]
+
+path and task planner requested states
+planner_mode = requested robot state from path and task planning
+planner_vel =
+planner_pos =
+
+drive_status = general status values for the odrives
+String : "vbus = XX.XXv | <list errors>"
