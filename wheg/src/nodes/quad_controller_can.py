@@ -27,10 +27,10 @@ CI_VEL_MODE = bytearray([2,0,0,0,1,0,0,0])
 AXIS_ID_LIST = [a for a in range(0xA,0x12)]
 
 class PController():
-    def __init__(axIDs,pos_filtered_bus,canDB):
+    def __init__(self,axIDs,pos_filtered_bus,canDB):
         #====Variable Setup====#
         self.bus = pos_filtered_bus
-        self.canDB = canDB
+        #self.canDB = canDB # not used
         self.axIDs = axIDs
         
         # get the nubmer of axes and the lowest ID, assuming all IDs are grouped
@@ -41,8 +41,8 @@ class PController():
         self.enabled = False
         
         # target position array, in phase and extension amount per wheel 2*n_drives long
-        self.targets = [[0.0,0.0]]*(n_ax//2)
-        self.gains = [[1.0,2.0]]*(n_ax//2)
+        self.targets = [0.0,0.0]*(self.n_ax//2)
+        self.gains = [-1.0,-2.0]*(self.n_ax//2)
         
         # initialize lists of CAN message objects for sending, only set data in the control loop
         # set_input_vel = 13, ctrl_mode = 11, ax_state = 07
@@ -56,36 +56,45 @@ class PController():
         #====ROS Setup====#
         # init ros node, not anonymous: should never have 2 instances using same bus
         rospy.init_node("run_controller")
-        self.clock = rospy.Rate(100)
+        self.clock = rospy.Rate(20)
         
         # init subscribers
-        self.switch_subscriber = rospy.Subscriber("switch_status", UInt8MultiArray, switch_callback)
-        self.pos_command_subscriber = rospy.Subscriber("run_pos_cmd", Float32MultiArray, set_pos_callback)
+        self.switch_subscriber = rospy.Subscriber("switch_status", UInt8MultiArray, self.switch_callback)
+        self.pos_command_subscriber = rospy.Subscriber("run_pos_cmd", Float32MultiArray, self.set_pos_callback)
     
     
     def switch_callback(self, msg):
         # control mode is first int of status array
         # 0 Disabled, 1 Running (this), 2 Walking, 3 Rolling
         if msg.data[0] == 1:
-            self.enabled = True
+            if not self.enabled:
+                self.enabled = True
+                rospy.loginfo("Run mode enabled")
         else:
-            self.enabled = False
+            if self.enabled:
+                self.enabled = False
+                rospy.loginfo("Run mode disabled")
             
     def set_pos_callback(self, msg):
+        now = time.monotonic_ns()
         self.targets = msg.data
+        rospy.loginfo("target assign took %d ns"%(time.monotonic_ns()-now))
     
     def controller_loop(self):
         
         # initialize arrays before entering control loop (not sure if actually faster..)
-        phi_hat = np.array([float("NaN")]*n_ax, dtype=float)
-        rx_bytes = [bytearray([0,0,0,0])]*n_ax
-        rx_id = [int(0)]*n_ax
-        vel_cmd = 0.0
-        trq_cmd = 0.0
+        self.phi_hat = np.array([float("NaN")]*self.n_ax, dtype=float)
+        self.rx_bytes = [bytearray([0,0,0,0])]*self.n_ax
+        self.rx_id = [int(0)]*self.n_ax
+        self.vel_cmd = 0.0
+        self.trq_cmd = 0.0
         
         while not rospy.is_shutdown():
+            t0 = time.monotonic_ns()
             if self.enabled:
-                self.control_iteration(self,phi_hat,rx_bytes,rx_id,vel_cmd,trq_cmd)
+                self.control_iteration()
+            t1 = time.monotonic_ns()
+            rospy.loginfo("iter took %d ns"%(t1-t1))
             # must sleep some for subscriber functions to be called
             self.clock.sleep()
             
@@ -102,34 +111,34 @@ class PController():
         #     msg.data = AXIS_STATE_IDLE
         #     bus.send(msg)
         
-    def control_iteration(self,phi_hat,rx_bytes,rx_id,vel_cmd,trq_cmd):
+    def control_iteration(self):
 
         # get encoder estimates, CAN bus is filtered at kernal already
         # so grabbing the next n frames should always give n position packets
         # but in an unknown order. We may lose a frame if an axis with a lower 
         # ID# talks over it but rarely if they all send at the same frequency
-        for i in range(n_ax):
-            msg = self.bus.recv()
-            rx_bytes[i] = msg.data[0:4]
-            rx_id[i] = msg.arbitration_id
+        for i in range(self.n_ax):
+            frame = self.bus.recv()
+            self.rx_bytes[i] = frame.data[0:4]
+            self.rx_id[i] = frame.arbitration_id
         
         # load estimates into float array, assuming axis IDs are in order
-        for i in range(n_ax):
-            d = (rx_id[i] >> 5) - ax_id_offset
-            phi_hat[d] = struct.unpack('f',rx_bytes[i])[0]
+        for i in range(self.n_ax):
+            d = (rx_id[i] >> 5) - self.ax_id_offset
+            self.phi_hat[d] = struct.unpack('f',self.rx_bytes[i])[0]
 
         # calculate controller response, motor phases decoupled into wheel
         # phase and wheel extension so different gains can be used with each
         # TODO use numpy and matrix math to maybe speed up, and merge with above loop?
-        for i in range(n_ax):
-            v = phi_hat[i] * -10
+        for i in range(self.n_ax):
+            self.vel_cmd = (self.phi_hat[i]-self.targets[i]) * self.gains[i]
             # TODO write math hardcoded to test speed difference
-            vel_cmd = min(2, max(v, -2))
-            trq_cmd = 0
-            vel_msg[i].data = struct.pack('f',vel_cmd)+struct.pack('f',trq_cmd)
+            self.vel_cmd = min(2, max(vel_cmd, -2))
+            self.trq_cmd = 0
+            self.vel_msg[i].data = struct.pack('f',self.vel_cmd)+struct.pack('f',self.trq_cmd)
 
         # send messages as fast as possible, will lose arbitration to encoder frames
-        for msg in vel_msg:
+        for msg in self.vel_msg:
             self.bus.send(msg)
 
 
@@ -154,7 +163,4 @@ if __name__=='__main__':
     except rospy.ROSInterruptException:
         # always close bus regardless of exception
         print("closing can bus" + bus.channel_info)
-        bus_pos_filter.shutdown()
-    except:
-        print("non interrupt error, closing can bus")
         bus_pos_filter.shutdown()

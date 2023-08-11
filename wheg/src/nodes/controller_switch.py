@@ -34,6 +34,8 @@ class ControllerSwitch:
         self.ctrl_msg = ros_msg.UInt8MultiArray()
         self.drv_msg = ros_msg.String()
         
+        self.ctrl_msg.data = [0] # start with motors disabled
+        
         # populate list of odrive fibre objects, will be in whatever order 
         # is listed in config.ini
         self.drives = []
@@ -171,12 +173,12 @@ class ControllerSwitch:
             ax.controller.config.vel_integrator_gain = 0.01
             ax.controller.config.vel_integrator_limit = 100.0
             
-    def start_rolling():
+    def start_rolling(self):
         rospy.loginfo("Switching to rolling mode")
         for ax in self.axes:
             ax.controller.input_vel = 0.0 #??
             ax.controller.config.control_mode = onum.ControlMode.VELOCITY_CONTROL
-            ax.controller.input_mode = onum.InputMode.PASSTHROUGH
+            ax.controller.config.input_mode = onum.InputMode.PASSTHROUGH
             
             # set new odrive internal controller gains
             ax.controller.config.vel_gain = 0.1
