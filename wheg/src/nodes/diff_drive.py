@@ -13,7 +13,7 @@ import struct
 ## will free up CAN bus and ROS network bandwidth
 ## take input as default geometry twist message
 
-## TODO NOTES ##
+## TODO NOTES ##aa
 
 AXIS_STATE_IDLE = bytearray([1,0,0,0,0,0,0,0])
 AXIS_STATE_CLOSED = bytearray([8,0,0,0,0,0,0,0])
