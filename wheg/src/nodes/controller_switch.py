@@ -44,6 +44,7 @@ class ControllerSwitch:
         for sn in self.sn_list:
             try:
                 drv = odrive.find_any(serial_number = sn, timeout=10)
+                rospy.loginfo("Found " + str(sn))
                 self.drives.append(drv)
                 self.axes.append(drv.axis0)
                 self.axes.append(drv.axis1)

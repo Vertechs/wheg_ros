@@ -24,7 +24,7 @@ AXIS_ID_LIST = [a for a in range(0xA,0x12)]
 
 # TODO should load from config
 WHEEL_CIRC = 0.07 * 2 * 3.1415 # in meters, angular pos measured in revolutions
-WHEEL_DIST = 0.19
+WHEEL_DIST = 0.19 # horizontal distance between wheels in meters
 
 class PController():
     def __init__(self,axIDs,pos_filtered_bus):
@@ -85,7 +85,10 @@ class PController():
         
         while not rospy.is_shutdown():
             if self.enabled:
+                t1 = time.monotonic_ns()
                 self.control_iteration(phi_hat,rx_bytes,rx_id,vel_cmd,trq_cmd,vel_msg)
+                t2 = time.monotonic_ns()
+                rospy.loginfo("Loop took %d"%( (t2-t1) // 1000) )
             # must sleep some for subscriber functions to be called
             self.clock.sleep()
             

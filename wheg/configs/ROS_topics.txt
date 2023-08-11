@@ -18,6 +18,8 @@ planner_mode = requested robot state from path and task planning
 planner_vel =
 planner_pos =
 
+rostopic publishing: rostopic pub -1 /planner_mode std_msgs/String "disable"
+
 drive_status = general status values for the odrives
 String : "vbus = XX.XXv | <list errors>"
 
