@@ -24,7 +24,7 @@ AXIS_STATE_IDLE = bytearray([1,0,0,0,0,0,0,0])
 AXIS_STATE_CLOSED = bytearray([8,0,0,0,0,0,0,0])
 CI_VEL_MODE = bytearray([2,0,0,0,1,0,0,0])
 
-AXIS_ID_LIST = [a for a in range(0xA,0x12)]
+AXIS_ID_LIST = [a for a in range(0x0A,0x12)]
 
 class PController():
     def __init__(self,axIDs,pos_filtered_bus,canDB):
@@ -48,6 +48,8 @@ class PController():
         # set_input_vel = 13, ctrl_mode = 11, ax_state = 07
         self.vel_msg = [can.Message(arbitration_id = 0x0D | a<<5, dlc = 8, 
                         is_extended_id = False) for a in axIDs]
+        self.pos_req = [can.Message(arbitration_id = 0x09 | a<<5, dlc = 8,
+                        is_extended_id=False, is_remote_frame = True) for a in axIDs]
         # self.mode_msg = [can.Message(arbitration_id = 0x0B | a<<5, dlc = 8, 
         #                 is_extended_id = False) for a in axIDs]
         # self.state_msg = [can.Message(arbitration_id = 0x07 | a<<5, dlc = 8, 
@@ -56,7 +58,7 @@ class PController():
         #====ROS Setup====#
         # init ros node, not anonymous: should never have 2 instances using same bus
         rospy.init_node("run_controller")
-        self.clock = rospy.Rate(20)
+        self.clock = rospy.Rate(1)
         
         # init subscribers
         self.switch_subscriber = rospy.Subscriber("switch_status", UInt8MultiArray, self.switch_callback)
@@ -92,9 +94,11 @@ class PController():
         while not rospy.is_shutdown():
             t0 = time.monotonic_ns()
             if self.enabled:
-                self.control_iteration()
+                self.control_iteration_request()
             t1 = time.monotonic_ns()
-            rospy.loginfo("iter took %d ns"%(t1-t1))
+            tms = (t1-t0)*0.000001
+            rospy.loginfo("iter took %.2f ms"%tms)
+            rospy.loginfo("estimates:"+str([round(p, 3) for p in self.phi_hat]))
             # must sleep some for subscriber functions to be called
             self.clock.sleep()
             
@@ -111,7 +115,18 @@ class PController():
         #     msg.data = AXIS_STATE_IDLE
         #     bus.send(msg)
         
-    def control_iteration(self):
+    # getting estimates from request frames sent by beagle bone
+    # slower but potentially more consistent
+    def control_iteration_request(self):
+        for i in range(self.n_ax):
+            self.bus.send(self.pos_req[i])
+            self.rx_bytes[i] = self.bus.recv(timeout=1).data[0:4]
+            self.phi_hat[i] = struct.unpack('f',self.rx_bytes[i])[0]
+            
+        
+    # getting estimates from cyclic messages sent from drives
+    # faster but may occasionally miss updated estimates
+    def control_iteration_cyclic(self):
 
         # get encoder estimates, CAN bus is filtered at kernal already
         # so grabbing the next n frames should always give n position packets
@@ -124,7 +139,7 @@ class PController():
         
         # load estimates into float array, assuming axis IDs are in order
         for i in range(self.n_ax):
-            d = (rx_id[i] >> 5) - self.ax_id_offset
+            d = (self.rx_id[i] >> 5) - self.ax_id_offset
             self.phi_hat[d] = struct.unpack('f',self.rx_bytes[i])[0]
 
         # calculate controller response, motor phases decoupled into wheel
@@ -133,7 +148,7 @@ class PController():
         for i in range(self.n_ax):
             self.vel_cmd = (self.phi_hat[i]-self.targets[i]) * self.gains[i]
             # TODO write math hardcoded to test speed difference
-            self.vel_cmd = min(2, max(vel_cmd, -2))
+            self.vel_cmd = 0 #min(2, max(self.vel_cmd, -2))
             self.trq_cmd = 0
             self.vel_msg[i].data = struct.pack('f',self.vel_cmd)+struct.pack('f',self.trq_cmd)
 

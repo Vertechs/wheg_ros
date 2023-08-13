@@ -54,6 +54,8 @@ class ControllerSwitch:
                 self.axes.append(None)
                 self.axes.append(None)
                 
+        self.n_ax = len(self.axes)
+                
         # init clock for sending periodic status messages, per 10s
         self.clock = rospy.Rate(0.1)
         
@@ -69,8 +71,6 @@ class ControllerSwitch:
     ### callback for messages published from path planning
     # will block for quite a while doing setup, may miss messages?
     def planner_callback(self, msg):
-        rospy.loginfo(msg)
-        
         # update control_switch message, assume message is ros_msg.String matching control mode list
         try:
             new_mode = CONTROL_MODES.index(msg.data)
@@ -104,6 +104,18 @@ class ControllerSwitch:
     def stop_callback(self,msg):
         if msg.data:
             self.shutdown()
+    
+    # Odrive cyclic message sending is on by default, disable and enable them
+    # depending on the controller in use
+    def enable_can_cyclic(self):
+        for axis in self.axes:
+            axis.config.can.heartbeat_rate_ms = 100
+            axis.config.can.encoder_rate_ms = 5
+    def disable_can_cyclic(self):
+        for axis in self.axes:
+            axis.config.can.heartbeat_rate_ms = 0
+            axis.config.can.encoder_rate_ms = 0              
+        
 
         
     # main loop only sends periodic status messages to controller nodes
@@ -112,8 +124,12 @@ class ControllerSwitch:
             # get battery voltage from first drive
             self.drv_msg.data = "vbus=%.2f"%self.drives[0].vbus_voltage
             # get drive errors and append to msg ros_msg.String
-            for drive in self.drives:
-                pass
+            for i in range(self.n_ax):
+                if self.axes[i].error:
+                    rospy.logwarn("Drive %d error, shutting down"%(i//2))
+                    odrive.utils.dump_errors(self.drives[i//2])
+                    self.shutdown()
+                    quit()
                 
             rospy.loginfo(self.drv_msg.data)
                 
@@ -131,15 +147,26 @@ class ControllerSwitch:
     # startup sequence, run every time bring robot up from disabled state
     def startup(self):
         for ax in self.axes:
-            # reset encoder estimates so in case controllers lost track
+            # reset encoder estimates in case controller nodes lost track
             ax.encoder.set_linear_count(0)
             ax.requested_state = onum.AxisState.CLOSED_LOOP_CONTROL
+            
+        # enable cyclic by default
+        self.enable_can_cyclic()
             
     # shutdown motor, idle all axes, encoders still tracking
     def shutdown(self):
         rospy.loginfo("Disabling motors")
         for ax in self.axes:
             ax.requested_state = onum.AxisState.IDLE
+            
+        # enable cyclic by default
+        self.enable_can_cyclic()
+        
+        # publish disabled state in case controller nodes missed
+        self.mode = 0
+        self.ctrl_msg.data[0] = 0
+        self.ctrl_status_pub.publish(self.ctrl_msg)
 
     # switch to running mode
     def start_running(self):
@@ -156,6 +183,8 @@ class ControllerSwitch:
             ax.controller.config.pos_gain = 20 # not used in vel control
             ax.controller.config.vel_integrator_gain = 0.01
             ax.controller.config.vel_integrator_limit = 100.0
+            
+        self.disable_can_cyclic()
         
         # set CPG configs
         ### here
@@ -164,15 +193,19 @@ class ControllerSwitch:
         rospy.loginfo("Switching to walking mode")
         for ax in self.axes:
             # hold current position when switching modes
+            ax.set_linear_count(0) # TODO remove, handled in planner
             ax.controller.input_pos = ax.encoder.pos_estimate
             ax.controller.config.control_mode = onum.ControlMode.POSITION_CONTROL
             ax.controller.config.input_mode = onum.InputMode.POS_FILTER
+            ax.controller.config.input_filter_bandwidth = 2 # TODO from parameters
             
             # set new odrive internal controller gains
             ax.controller.config.vel_gain = 0.04
             ax.controller.config.pos_gain = 120 
             ax.controller.config.vel_integrator_gain = 0.01
             ax.controller.config.vel_integrator_limit = 100.0
+            
+        self.disable_can_cyclic()
             
     def start_rolling(self):
         rospy.loginfo("Switching to rolling mode")
@@ -187,16 +220,20 @@ class ControllerSwitch:
             ax.controller.config.vel_integrator_gain = 0.0
             ax.controller.config.vel_integrator_limit = 100.0
         
+        self.enable_can_cyclic()
         
 
 if __name__ == "__main__":
     # load config, assuming run from root "/wheg" directory
-    
+    # Better to get from known path,
     # TODO Get from ros package path
     #pkg_path = 
     
     cfg = configparser.ConfigParser()
     cfg.read("configs/robot_config.ini")
+    
+    if len(cfg.sections()) < 1:
+        raise Exception("Config empty, may be running in the wrong directory?")
 
     try:
         node = ControllerSwitch(cfg)

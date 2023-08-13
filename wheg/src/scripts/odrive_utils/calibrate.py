@@ -13,6 +13,9 @@ config.read(cf_path)
 serial_numbers_str = config.get("Hardware","odrive serial numbers hex")
 serial_numbers = serial_numbers_str.replace(' ','').split(',')
 
+if input("Motors disengaged from shafts? (y/n)") != 'y':
+    quit()
+
 for s in serial_numbers:
     try:
         drv = odrive.find_any(serial_number=s,timeout=20)
