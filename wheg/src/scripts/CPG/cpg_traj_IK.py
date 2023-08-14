@@ -11,7 +11,7 @@ names = ["1","2","3","4"]
 for i in range(4):
     whl.append(WhegFourBar(parameters,names[i]))
 
-gen1 = CPG_FIC(4)
+gen1 = GeneratorFC(4)
 
 # gen1.weights = np.array([[0,0,0,0],
 #                        [1,0,0,0],

@@ -2,7 +2,7 @@ import numpy as np
 
 
 # Implement fully connected Kurumato oscillator network
-class CPG_FIC:
+class GeneratorFC:
     def __init__(self, num_oscillator, default_weight=1.0, default_frequency=1.0):
         self.N = num_oscillator
         n = self.N
@@ -30,12 +30,10 @@ class CPG_FIC:
         self.gain_off = 2.0 # rad/s
         self.gain_amp = 2.0 # rad/s
 
-    def euler_update(self, time_step, output_func):
+    def euler_update(self, time_step):
         # eulers method, y(t+1) = y(t) + T*h(t,y)
         T = time_step
-        outN = np.size(output_func(0,0,0)) # BAD
-        theta = np.zeros((self.N,outN))
-
+        
         # for each oscillator
         for i in range(self.N):
 
@@ -61,14 +59,6 @@ class CPG_FIC:
             self.d_off[i] += T * ddeloff
             self.off[i] += T * self.d_off[i]
 
-            # OUTPUT // return signal
-            theta[i,:] = output_func(self.off[i],self.amp[i],self.phi[i])
-
-        return theta
-
-    def default_callback(self,off,amp,phi):
-        return off + amp * np.sin(phi)
-
     def reset_oscillator(self):
         self.phi = np.zeros(self.N)
         self.amp = self.target_amps
@@ -84,7 +74,7 @@ class CPG_FIC:
         self.amp += amp_noise
         self.off += off_noise
 
-    def output(self):
+    def graph_output(self):
         # calculate output without updating state
         theta = np.zeros(self.N)
         for i in range(self.N):

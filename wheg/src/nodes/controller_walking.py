@@ -56,7 +56,7 @@ class PController():
         self.clock = rospy.Rate(10)
         
         # init subscribers
-        self.switch_subscriber = rospy.Subscriber("switch_status", UInt8MultiArray, self.switch_callback)
+        self.switch_subscriber = rospy.Subscriber("switch_mode", UInt8MultiArray, self.switch_callback)
         self.pos_command_subscriber = rospy.Subscriber("walk_pos_cmd", Float32MultiArray, self.pos_callback)
         
         rospy.loginfo("pos test controller started")
@@ -80,7 +80,7 @@ class PController():
     
     def controller_loop(self):
         
-        # initialize arrays before entering control loop (not sure if actually faster..)
+        # initialize arrays before entering control loop
         self.rx_bytes = [bytearray([0,0,0,0])]*self.n_ax
         self.rx_id = [int(0)]*self.n_ax
         self.phi0 = 0.0
@@ -106,19 +106,8 @@ class PController():
         
         # calculate desired positions
         for i in range(self.n_ax//2):
-            if i%2 == 0: # odd wheels on right, ccw(+) = forward
-                d = -1
-            else:
-                d = 1
-                
-            if i<2: # opposite of d on back, same in front
-                s = 1
-            else:
-                s = -1
             
-            # TODO replace with call to wheg object for position and torque
-            self.phi0 = RAD_TO_CIRC * np.pi * d*self.rot[i]
-            self.phi1 = RAD_TO_CIRC * np.pi * d*self.rot[i] + s*d*self.ext[i]
+            ## Call wheg object IK to get desired positions
             
             # set message byte arrays with position and velocity and torque feed forward
             self.pos_msg[2*i].data   = struct.pack('f',self.phi0)+struct.pack('h',self.vel_ff)+struct.pack('h',self.trq_ff)

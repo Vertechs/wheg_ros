@@ -55,10 +55,10 @@ class PController():
         self.clock = rospy.Rate(10)
         
         # init subscribers
-        self.switch_subscriber = rospy.Subscriber("switch_status", UInt8MultiArray, self.switch_callback)
-        self.pos_command_subscriber = rospy.Subscriber("walk_pos_cmd", Float32MultiArray, self.pos_callback)
+        self.switch_subscriber = rospy.Subscriber("switch_mode", UInt8MultiArray, self.switch_callback)
+        self.pos_command_subscriber = rospy.Subscriber("pose_cmd", Float32MultiArray, self.pos_callback)
         
-        rospy.loginfo("pos test controller started")
+        rospy.loginfo("pose test controller started")
     
     
     def switch_callback(self, msg):

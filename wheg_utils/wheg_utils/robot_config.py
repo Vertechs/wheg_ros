@@ -1,12 +1,19 @@
 from wheg_utils.whegs_4bar import WhegFourBar
 
-# storing robot configs as python classes instead of in ini file
+# storing robot configs as python classes instead of in ROS params
 
 # wheel module numbering is L->R, T->B 
 ##   (0) O==||==O (1)
 ##          ||
 ##          ||
 ##   (2) O==||==O (3)
+
+# calculated height to radius ratio at maximum extensions for give number of arcs
+# see: https://www.desmos.com/calculator/xjnwwlqbdg
+# may need to be adjusted to compensate for wheel geometry
+EXT_RATIO = {3:1.366,4:1.707,5:1.760,6:1.732}
+EXT_DIFF = {3:1.366,4:0.707,5:0.415,6:0.268}
+
 
 class RobotDefinition:
     def __init__(self,num_wheels):
@@ -41,16 +48,15 @@ class RobotDefinition:
         for i in range(self.num_wheels):
             # Odd numbered wheels are on the right (y-)
             # wheels >2 are on back (x-)
-            d,s=1,1
-            if i%2 != 0: d = -1
-            if i>2: s = -1
+            dx,dy=1,1
+            if i%2 != 0: dy = -1
+            if i>2: dx = -1
             
-            x = s * self.wheel_base_length / 2
-            y = d * self.wheel_base_width / 2
+            x = dx * self.wheel_base_length / 2
+            y = dy * self.wheel_base_width / 2
             o = self.wheel_base_offset
             
             self.centers[i] = (x+o[0],y+o[1],o[2])
-        
         
         
 # wheel gear ratios
@@ -67,6 +73,8 @@ class WheelDefinition:
         
         self.n_arc = 5
         
+        self.radius = 70
+        
     def set_ratios(self):
         x = 1.0
         for stage in self.outer_stages:
@@ -82,6 +90,13 @@ class WheelDefinition:
         for stage in self.wheel_stages:
             x = x*(stage[0]/stage[1])
         self.whl_ratio = x
+        
+        # not a gear ratio but still needs to be calculated
+        try:
+            self.ext_rad_ratio = EXT_RATIO[self.n_arc]
+            self.ext_step_ratio = EXT_DIFF[self.n_arc]
+        except KeyError:
+            print("Wheel has invalid number of legs/arcs")
 
         
 def get_config_A():

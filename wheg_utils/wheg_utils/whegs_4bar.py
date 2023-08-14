@@ -117,3 +117,8 @@ class WhegFourBar:
         thA = -np.pi + alpha - beta + self.pivotTheta #thA between AD and AL, add thBA angle
 
         return thA
+        
+    def calc_torques(self):
+        # TODO
+        T1,T2=0.0
+        return T1,T2

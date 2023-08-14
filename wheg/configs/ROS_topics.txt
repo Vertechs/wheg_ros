@@ -9,14 +9,13 @@ step_pos = desired position of contacting leg for each wheel
 StepArray_msg : [float32, float31, int32] : [[x,z,p]*n_wheel]
 x,z,p : x z position of contact and incrementing spoke offset
 
-run_pos = desired phase and extension of each wheel
+run_pos_cmd = desired phase and extension of each wheel
 Float32MultiArray : [[theta,ext] * n_wheel]
 theta = phase of wheel, ext = extension amount [0->1]
 
 path and task planner requested states
 planner_mode = requested robot state from path and task planning
-planner_vel =
-planner_pos =
+planner_vector = float array: fwd vel, rotate vel, ride height, ride angle x, ride angle y
 
 rostopic publishing: rostopic pub -1 /planner_mode std_msgs/String "disable"
 

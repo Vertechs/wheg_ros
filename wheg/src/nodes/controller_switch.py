@@ -27,7 +27,7 @@ class ControllerSwitch:
         
         # set up ROS nodes and topics
         rospy.init_node("controller_switch")
-        self.ctrl_status_pub = rospy.Publisher("switch_status", ros_msg.UInt8MultiArray, queue_size = 2)
+        self.ctrl_status_pub = rospy.Publisher("switch_mode", ros_msg.UInt8MultiArray, queue_size = 2)
         self.drive_status_pub = rospy.Publisher("drv_status", ros_msg.String, queue_size=10)
  
         

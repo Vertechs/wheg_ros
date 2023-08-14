@@ -51,7 +51,7 @@ class PController():
         
         # init subscribers
         self.switch_subscriber = rospy.Subscriber("switch_status", UInt8MultiArray, self.switch_callback)
-        self.pos_command_subscriber = rospy.Subscriber("roll_vel_cmd", Twist, self.vel_callback)
+        self.pos_command_subscriber = rospy.Subscriber("roll_twist_cmd", Twist, self.vel_callback)
     
     
     def switch_callback(self, msg):
