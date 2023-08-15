@@ -160,15 +160,16 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
- src/nodes/controller_switch
- src/nodes/controller_pose
- src/nodes/controller_running
- src/nodes/controller_rolling
- src/nodes/controller_walking
- src/nodes/planner_cpg
- src/nodes/planner_dummy
- src/scripts/odrive_utils/calibrate
- src/scripts/odrive_utils/reset
+ src/nodes/controller_switch.py
+ src/nodes/controller_running.py
+ src/nodes/controller_rolling.py
+ src/nodes/controller_walking.py
+ src/nodes/planner_cpg.py
+ src/nodes/planner_dummy.py
+ src/nodes/standalone_diffdrive.py
+ src/nodes/standalone_pose.py
+ src/scripts/odrive_utils/calibrate.py
+ src/scripts/odrive_utils/reset.py
  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
