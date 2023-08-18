@@ -161,11 +161,13 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
  src/nodes/controller_switch.py
+ src/nodes/controller_stepping.py
  src/nodes/controller_running.py
  src/nodes/controller_rolling.py
  src/nodes/controller_walking.py
  src/nodes/planner_cpg.py
  src/nodes/planner_dummy.py
+ src/nodes/planner_diff.py
  src/nodes/standalone_diffdrive.py
  src/nodes/standalone_pose.py
  src/scripts/odrive_utils/calibrate.py

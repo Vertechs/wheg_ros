@@ -5,7 +5,7 @@ import time
 import numpy as np
 
 # local packages with wheg and cpg classes
-from wheg_utils.central_pattern_generators import GeneratorFC
+from wheg_utils.CPG_FIC import GeneratorFC
 from wheg_utils import robot_config
 
 robot = robot_config.get_config_A()

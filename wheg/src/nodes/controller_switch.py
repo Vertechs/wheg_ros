@@ -227,10 +227,8 @@ class ControllerSwitch:
     def start_walking(self):
         rospy.loginfo("Switching to walking mode")
         for ax in self.axes:
-            print(ax.encoder.pos_estimate)
-            print(ax.controller.input_pos)
-            print(ax.controller.pos_setpoint,'\n')
             # odrive sets input_pos to current pos automatically when going to position control
+            ax.encoder.set_linear_count(0)
             ax.controller.config.control_mode = onum.ControlMode.POSITION_CONTROL
             ax.controller.config.input_mode = onum.InputMode.POS_FILTER
             ax.controller.config.input_filter_bandwidth = 2 # TODO from parameters

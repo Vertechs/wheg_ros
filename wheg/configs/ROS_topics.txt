@@ -26,3 +26,8 @@ drive_status = general status values for the odrives
 String : "vbus = XX.XXv | <list errors>"
 
 stop_btn = button to disable motors, only latch to disabled
+
+
+
+
+ax = [odrv0.axis0,odrv0.axis1,odrv1.axis0,odrv1.axis1,odrv2.axis0,odrv2.axis1,odrv3.axis0,odrv3.axis1]

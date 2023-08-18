@@ -37,19 +37,19 @@ class PController(can.Listener):
         # control flag set by subscriber on the controller swtich topic
         self.enabled = False
         
-        # target position arrays, rotational and extension position
-        self.rot = [0.0]*(self.n_whl)
-        self.ext = [0.0]*(self.n_whl)
+        # target position arrays, rotational and extension position targets
+        self.phi_tar = [0.0]*self.n_ax
+        self.rot_tar = [0.0]*(self.n_whl)
+        self.ext_tar = [0.0]*(self.n_whl)
         
         # state estiamtes from odrive, passed back to cpg
         self.phi_hat = [0.0]*self.n_ax
         self.rot_hat = [0.0]*(self.n_whl)
         self.ext_hat = [0.0]*(self.n_whl)
         
-        # position target and feed forward terms
-        self.phi_tar = [0.0]*self.n_ax
-        self.vel_ff = 0
-        self.trq_ff = 0 # feed forward must be int, taken as x*10^-3 in odrive 
+        # feed forward terms
+        self.vel_ff = [0]*self.n_ax
+        self.trq_ff = [0]*self.n_ax # feed forward must be int, taken as x*10^-3 in odrive 
         
         #===CAN setup===#
         
@@ -64,6 +64,8 @@ class PController(can.Listener):
         #====ROS Setup====#
         # init ros node, not anonymous: should never have 2 instances using same bus
         rospy.init_node("walk_controller")
+        # pos sending rate. set point is filtered in odrive, make sure bandwidth in
+        # controller_switch is ~0.5x the sending rate
         self.clock = rospy.Rate(10)
         
         # init subscribers
@@ -71,9 +73,26 @@ class PController(can.Listener):
         self.pos_command_subscriber = rospy.Subscriber("walk_pos_cmd", Float32MultiArray, self.target_callback)
         
         #===Wheg setup===#
+        # initialize wheg objects for each wheel module
         self.whegs = []
         for i in range(self.n_whl):
             self.whegs.append(WhegFourBar(robot.modules[i].four_bar.get_parameter_list()))
+            
+        # calculate extension phase difference including wheel internal gearing
+        # convert to turn from radians
+        self.ext_multiplier = []
+        for i in range(self.n_whl):
+            mod = robot.modules[i]
+            ratio = mod.ext_phase_diff * mod.whl_ratio * (0.5/np.pi)
+            self.ext_multiplier.append(ratio)
+            
+        # load gear ratios for drive
+        self.inner_ratio = [mod.inner_ratio for mod in robot.modules]
+        self.outer_ratio = [mod.outer_ratio for mod in robot.modules]
+        
+        # direction for deployment 
+        # (+1 for +ext ~= outer - inner | -1 for +ext ~= -outer + inner)
+        self.whl_dir = [1,-1,-1,1]
         
         rospy.loginfo("Walking controller launched")
     
@@ -91,27 +110,31 @@ class PController(can.Listener):
         # 0 Disabled, 1 Running , 2 Walking, 3 Rolling (this)
         if msg.data[0] == 2:
             if not self.enabled:
-                rospy.loginfo("Walk enabled")
+                rospy.loginfo("Walk controller enabled")
                 self.enabled = True
         else:
             if self.enabled:
                 self.enabled = False
-                rospy.loginfo("Walk disabled")
+                rospy.loginfo("Walk controller disabled")
             
     def target_callback(self, msg):
         # set target positions from message data
-        self.rot = msg.data[0:4]
-        self.ext = msg.data[4:8]
+        self.rot_tar = msg.data[0:4]
+        self.ext_tar = msg.data[4:8]
     
     def controller_loop(self):
+        self.e = 0.0
+        self.p = 0.0
+        
         while not rospy.is_shutdown():
             if self.enabled:
-                t1 = time.monotonic_ns()
+                # t1 = time.monotonic_ns()
                 
+                self.control_math()
                 self.send_commands()
                 
-                t2 = time.monotonic_ns()
-                rospy.loginfo("Loop took %d"%( (t2-t1) // 1000) )
+                # t2 = time.monotonic_ns()
+                # rospy.loginfo("Loop took %d us"%( (t2-t1) // 1000) )
             # must sleep some for subscriber functions to be called
             self.clock.sleep()
             
@@ -119,13 +142,22 @@ class PController(can.Listener):
         rospy.loginfo("shutting down")
         self.bus.shutdown()
         
+    def control_math(self):
+        for i in range(self.n_whl):
+            # calculate difference in hub phase needed
+            self.e = self.ext_tar[i] * self.ext_multiplier[i] * 0.5 * self.whl_dir[i]
+            
+            # calculate target phase for each *motor* using IK or linear approx
+            self.phi_tar[2*i] = self.outer_ratio[i] * (self.rot_tar[i] + self.e)
+            self.phi_tar[2*i+1] = self.inner_ratio[i] * (self.rot_tar[i] - self.e)
+            
+            #self.trq_ff[2*i:2*i+1] = self.wheg.IK_f(self.phi_hat[..]) #TODO get from IK wheg object
         
     def send_commands(self):
         # calculate desired positions
-        for i in range(self.n_whl):
+        for i in range(self.n_ax):
             # set message byte arrays with position and velocity and torque feed forward
-            self.pos_msg[2*i].data   = struct.pack('f',self.phi0)+struct.pack('h',self.vel_ff)+struct.pack('h',self.trq_ff)
-            self.pos_msg[2*i+1].data = struct.pack('f',self.phi1)+struct.pack('h',self.vel_ff)+struct.pack('h',self.trq_ff)
+            self.pos_msg[i].data = struct.pack('f',self.phi_tar[i])+struct.pack('h',self.vel_ff[i])+struct.pack('h',self.trq_ff[i])
 
         # send messages as fast as possible, will lose arbitration to encoder frames
         for msg in self.pos_msg:

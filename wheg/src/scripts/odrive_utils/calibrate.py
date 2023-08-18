@@ -29,10 +29,11 @@ for s in cfg.drive_sn:
     print("Connected to ", drv.serial_number)
     drv.clear_errors()
 
+    # only calibrate encoder offset, assume motor calibrated
     print("Calibrating Axis0")
-    drv.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+    drv.axis0.requested_state = AXIS_STATE_ENCODER_OFFSET_CALIBRATION #AXIS_STATE_FULL_CALIBRATION_SEQUENCE
     print("Calibrating Axis1")
-    drv.axis1.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+    drv.axis1.requested_state = AXIS_STATE_ENCODER_OFFSET_CALIBRATION #AXIS_STATE_FULL_CALIBRATION_SEQUENCE
     
     while drv.axis1.current_state != AXIS_STATE_IDLE and drv.axis0.current_state != AXIS_STATE_IDLE:
         time.sleep(.1)

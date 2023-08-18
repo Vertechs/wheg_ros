@@ -71,8 +71,8 @@ class WheelDefinition:
         self.wheel_stages = []
         
         # hub to wheel so all >1
-        self.out_ratio = 1.0
-        self.inr_ratio = 1.0
+        self.outer_ratio = 1.0
+        self.inner_ratio = 1.0
         self.whl_ratio = 1.0
         
         self.n_arc = 5
@@ -82,11 +82,18 @@ class WheelDefinition:
         # list of lengths and angles defining the four bar mechanism
         self.four_bar = FourBarDefinition()
         
+        # phase difference needed for arc to be fully extended
+        # taken from CAD or IK calculations
+        self.ext_phase_diff = np.deg2rad(63.7)
+        
+        # 1 or -1 
+        self.whl_dir = 1
+        
     def set_ratios(self):
         x = 1.0
         for stage in self.outer_stages:
             x = x*(stage[0]/stage[1])
-        self.out_ratio = x
+        self.outer_ratio = x
         
         x = 1.0
         for stage in self.inner_stages:
@@ -172,6 +179,8 @@ def get_config_A():
     
     para = [5, 15.0, 45.521, 30.0, 65.0, 62.337, 8.0, np.deg2rad(58.7)]
     
+    # set mechanical parameters for all wheels
     for mod in robcfg.modules:
         mod.four_bar.set_parameter_list(para)
+        mod.ext_phase_diff = np.deg2rad(63.7)
     return robcfg
