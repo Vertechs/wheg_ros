@@ -1,9 +1,12 @@
 import rospy
 import odrive
+import can
 import configparser
 import std_msgs.msg as ros_msg
 import odrive.enums as onum
 import time
+
+from wheg_utils import robot_config
 
 # A single node interfacing with all odrives over USB native interface to
 # change control modes and update configuration so as not to overload the CAN bus
@@ -15,21 +18,29 @@ import time
 # TODO maybe use parameter server, not sure if fast enough
 # or master slave model for controller nodes
 
-CONTROL_MODES = ['disable','run','walk','roll','run_vel']
+CONTROL_MODES = ['disable','run','walk','roll','run_rtr']
+
+AXIS_ID_LIST = [a for a in range(0x0A,0x12)]
 
 class ControllerSwitch:
-    def __init__(self,cfg):
+    def __init__(self,cfg,can_bus,ax_ids):
         self.mode = 0
         self.last_mode = 0
         
-        self.sn_list = cfg.get("Hardware","odrive serial numbers hex")
-        self.sn_list = self.sn_list.replace(' ','').split(',')
+        self.can_mode = 0
+        
+        self.sn_list = cfg.drive_sn
+        
+        self.can_bus = can_bus
+        self.ax_ids = ax_ids
+        # heartbeat request frames for each axis
+        self.rtr_msgs = [can.Message(arbitration_id = 0x01 | a<<5, dlc = 8, 
+                        is_extended_id = False, is_remote_frame = True) for a in ax_ids]
         
         # set up ROS nodes and topics
         rospy.init_node("controller_switch")
         self.ctrl_status_pub = rospy.Publisher("switch_mode", ros_msg.UInt8MultiArray, queue_size = 2)
         self.drive_status_pub = rospy.Publisher("drv_status", ros_msg.String, queue_size=10)
- 
         
         self.ctrl_msg = ros_msg.UInt8MultiArray()
         self.drv_msg = ros_msg.String()
@@ -76,13 +87,17 @@ class ControllerSwitch:
             new_mode = CONTROL_MODES.index(msg.data)
             self.last_mode = self.mode
             self.mode = new_mode
-            self.ctrl_msg.data = [self.mode]
+            
+            if new_mode == 4:
+                self.can_mode = 1
+            else:
+                self.can_mode = 0
+            
+            self.ctrl_msg.data = [self.mode,self.can_mode]
         except ValueError:
             # if not in control mode list, dont update and send a warning
             rospy.logwarn("Invalid control mode, falling back to " + CONTROL_MODES[self.mode])
         
-        # broadcast new control status, can bus should be clear after one control cycle. (~80hz)
-        self.ctrl_status_pub.publish(self.ctrl_msg)
         # Control nodes should always exit with zero velocity?
         # TODO, pass commanded velcoity and phases to other node?
         
@@ -100,6 +115,14 @@ class ControllerSwitch:
         elif self.mode == 3:
             self.start_rolling()
             
+        if self.can_mode == 1:
+            self.disable_can_cyclic()
+        else:
+            self.enable_can_cyclic()
+            
+        # broadcast new control status whenever it is updated
+        self.ctrl_status_pub.publish(self.ctrl_msg)
+            
     # disable motors if stop button pushed
     def stop_callback(self,msg):
         if msg.data:
@@ -108,13 +131,27 @@ class ControllerSwitch:
     # Odrive cyclic message sending is on by default, disable and enable them
     # depending on the controller in use
     def enable_can_cyclic(self):
+        if self.mode == 2: # Walking controller requires slower input
+            enc_rate = 10
+        else:
+            enc_rate = 5
+        
         for axis in self.axes:
-            axis.config.can.heartbeat_rate_ms = 100
-            axis.config.can.encoder_rate_ms = 5
+            axis.config.can.heartbeat_rate_ms = 1000
+            axis.config.can.encoder_rate_ms = enc_rate
+            
+        # Have to send an rtr frame to each drive to reset the cyclic message server
+        for msg in self.rtr_msgs[::2]:
+            self.can_bus.send(msg)
+            
+        rospy.loginfo("CAN cyclic messages on")
+                
     def disable_can_cyclic(self):
         for axis in self.axes:
             axis.config.can.heartbeat_rate_ms = 0
-            axis.config.can.encoder_rate_ms = 0              
+            axis.config.can.encoder_rate_ms = 0    
+        
+        rospy.loginfo("CAN cyclic messages off")
         
 
         
@@ -132,7 +169,8 @@ class ControllerSwitch:
                     quit()
                 
             rospy.loginfo(self.drv_msg.data)
-                
+            
+
             # publish status messages
             self.ctrl_status_pub.publish(self.ctrl_msg)
             self.drive_status_pub.publish(self.drv_msg)
@@ -141,6 +179,7 @@ class ControllerSwitch:
         
         rospy.loginfo("Exiting")
         self.shutdown()
+        self.can_bus.shutdown()
         ### exit logic here
         
 
@@ -159,11 +198,8 @@ class ControllerSwitch:
         rospy.loginfo("Disabling motors")
         for ax in self.axes:
             ax.requested_state = onum.AxisState.IDLE
-            
-        # enable cyclic by default
-        self.enable_can_cyclic()
-        
-        # publish disabled state in case controller nodes missed
+
+        # publish disabled state to controller nodes
         self.mode = 0
         self.ctrl_msg.data[0] = 0
         self.ctrl_status_pub.publish(self.ctrl_msg)
@@ -184,7 +220,6 @@ class ControllerSwitch:
             ax.controller.config.vel_integrator_gain = 0.01
             ax.controller.config.vel_integrator_limit = 100.0
             
-        self.disable_can_cyclic()
         
         # set CPG configs
         ### here
@@ -192,9 +227,10 @@ class ControllerSwitch:
     def start_walking(self):
         rospy.loginfo("Switching to walking mode")
         for ax in self.axes:
-            # hold current position when switching modes
-            ax.set_linear_count(0) # TODO remove, handled in planner
-            ax.controller.input_pos = ax.encoder.pos_estimate
+            print(ax.encoder.pos_estimate)
+            print(ax.controller.input_pos)
+            print(ax.controller.pos_setpoint,'\n')
+            # odrive sets input_pos to current pos automatically when going to position control
             ax.controller.config.control_mode = onum.ControlMode.POSITION_CONTROL
             ax.controller.config.input_mode = onum.InputMode.POS_FILTER
             ax.controller.config.input_filter_bandwidth = 2 # TODO from parameters
@@ -202,15 +238,14 @@ class ControllerSwitch:
             # set new odrive internal controller gains
             ax.controller.config.vel_gain = 0.04
             ax.controller.config.pos_gain = 120 
-            ax.controller.config.vel_integrator_gain = 0.01
+            ax.controller.config.vel_integrator_gain = 0.0
             ax.controller.config.vel_integrator_limit = 100.0
             
-        self.disable_can_cyclic()
             
     def start_rolling(self):
         rospy.loginfo("Switching to rolling mode")
         for ax in self.axes:
-            ax.controller.input_vel = 0.0 #??
+            ax.controller.input_vel = 0.0 # TODO
             ax.controller.config.control_mode = onum.ControlMode.VELOCITY_CONTROL
             ax.controller.config.input_mode = onum.InputMode.PASSTHROUGH
             
@@ -220,23 +255,23 @@ class ControllerSwitch:
             ax.controller.config.vel_integrator_gain = 0.0
             ax.controller.config.vel_integrator_limit = 100.0
         
-        self.enable_can_cyclic()
         
 
 if __name__ == "__main__":
     # load config, assuming run from root "/wheg" directory
-    # Better to get from known path,
-    # TODO Get from ros package path
-    #pkg_path = 
     
-    cfg = configparser.ConfigParser()
-    cfg.read("configs/robot_config.ini")
+    # cfg = configparser.ConfigParser()
+    # cfg.read("configs/robot_config.ini")
     
-    if len(cfg.sections()) < 1:
-        raise Exception("Config empty, may be running in the wrong directory?")
+    # if len(cfg.sections()) < 1:
+    #     raise Exception("Config empty, may be running in the wrong directory?")
+    cfg = robot_config.get_config_A()
+    
+    # need a can bus interface to reset odrive cyclic sending
+    bus = can.Bus(channel="can0",bustype="socketcan")
 
     try:
-        node = ControllerSwitch(cfg)
+        node = ControllerSwitch(cfg,bus,AXIS_ID_LIST)
         node.main_loop()
         
     except rospy.ROSInterruptException:

@@ -30,20 +30,19 @@ class Generator:
                                     [-2,0 ,-1,1],
                                     [-1,1 ,0 ,2],
                                     [-1,-1,-2,0]]) * (np.pi/2)
-                                    
-        self.amp_multiplier = np.ones((self.n_whl))
+        self.cpg.target_amps = np.ones(4)*0.2
         
         #=== ROS Setup ===#
         rospy.init_node("central_pattern_generator")
         
         # #TODO balance cpg update rate with sending rate to controllers
         self.cpg_clock = rospy.Rate(CPG_RATE)
-        self.send_ratio = 400 # after how many internal updates to send pos command
+        self.send_ratio = 2 # after how many internal updates to send pos command
         
         self.mode_sub = rospy.Publisher("planner_mode", ros_msg.String, self.mode_callback)
         self.vector_sub = rospy.Publisher("planner_vector", ros_msg.Float32MultiArray, self.vector_callback)
         
-        self.target_pub = rospy.Publisher("run_pos_cmd", ros_msg.Float32MultiArray, queue_size = 2)
+        self.target_pub = rospy.Publisher("walk_pos_cmd", ros_msg.Float32MultiArray, queue_size = 2)
         
         self.target_message = ros_msg.Float32MultiArray(data = [0.0]*n_whl*2)
         self.ext_tar = [0.0]*n_whl
@@ -69,21 +68,24 @@ class Generator:
             # oscilator offset tracks desired extension amount
             # sin(x) = x approximation for ride angle
             self.cpg.target_offset[i] = h/self.wheel_rad[i]
-            
-            # TODO calculate this from IK or look up table
-            # Amplitude used to smooth the wheel rolling, i.e. retracting 
-            # slightly when a leg is pointed straight down
-            self.amp_multiplier = 0.0
         
     def generator_loop(self)
         t_step = 1.0/CPG_RATE # TODO get this from actual time
+        self.iter_counter = 0
         
         while not rospy.is_shutdown():
             self.cpg.euler_update(t_step)
-            self.smoothing = 
             self.ext_tar = (self.smoothing + self.cpg.off)
             self.rot_tar = self.cpg.phi.tolist()
             self.target_message.data = self.ext_tar + self.rot_tar
+            
+            if self.iter_counter >= self.send_ratio:
+                self.iter_counter = 0
+                self.target_pub.publish(self.target_message)
+            
+            self.iter_counter += 1
+            
+            self.cpg_clock.sleep()
             
 
 if __name__=='__main__':

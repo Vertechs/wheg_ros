@@ -17,6 +17,9 @@ path and task planner requested states
 planner_mode = requested robot state from path and task planning
 planner_vector = float array: fwd vel, rotate vel, ride height, ride angle x, ride angle y
 
+diff_cmd = differential drive and stance command
+Float32MultiArray : [v,w,h,ax,ay]
+
 rostopic publishing: rostopic pub -1 /planner_mode std_msgs/String "disable"
 
 drive_status = general status values for the odrives

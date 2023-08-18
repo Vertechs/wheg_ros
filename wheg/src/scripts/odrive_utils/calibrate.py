@@ -5,18 +5,21 @@ import math
 import configparser
 import os.path
 
-config = configparser.ConfigParser()
-# cf_path = os.path.dirname(os.path.realpath(__file__))+'/../robot_config.ini'
-cf_path = "configs/robot_config.ini"
-config.read(cf_path)
+# config = configparser.ConfigParser()
+# # cf_path = os.path.dirname(os.path.realpath(__file__))+'/../robot_config.ini'
+# cf_path = "configs/robot_config.ini"
+# config.read(cf_path)
 
-serial_numbers_str = config.get("Hardware","odrive serial numbers hex")
-serial_numbers = serial_numbers_str.replace(' ','').split(',')
+# serial_numbers_str = config.get("Hardware","odrive serial numbers hex")
+# serial_numbers = serial_numbers_str.replace(' ','').split(',')
+
+from wheg_utils import robot_config
+cfg = robot_config.get_config_A()
 
 if input("Motors disengaged from shafts? (y/n)") != 'y':
     quit()
 
-for s in serial_numbers:
+for s in cfg.drive_sn:
     try:
         drv = odrive.find_any(serial_number=s,timeout=20)
     except:
@@ -35,7 +38,7 @@ for s in serial_numbers:
         time.sleep(.1)
         
     # Reset control mode and target so we can go into closed loop control
-    # CAN encoder estiamtes sent as all 0s untill axis goes into closed loop at least once
+    # CAN encoder estimates frames are empty until axis is put into closed loop at least once
     print("initializing estimator with closed loop control")
     for ax in [drv.axis0,drv.axis1]:
         ax.controller.config.control_mode = CONTROL_MODE_POSITION_CONTROL
@@ -51,4 +54,4 @@ for s in serial_numbers:
     pos1 = drv.axis0.encoder.pos_estimate
     pos2 = drv.axis1.encoder.pos_estimate
     
-    print("ax1:%.4f   ax2:%.4f"%(pos1,pos2))
+    print("ax1:%.4f   ax2:%.4f\n\n"%(pos1,pos2))

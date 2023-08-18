@@ -1,4 +1,5 @@
-from wheg_utils.whegs_4bar import WhegFourBar
+from wheg_utils.four_bar_wheg import WhegFourBar
+import numpy as np
 
 # storing robot configs as python classes instead of in ROS params
 
@@ -42,6 +43,9 @@ class RobotDefinition:
         # wheel center positions (x,y,z)(mm) relative to robot center of mass
         self.centers = [(0.0,0.0,0.0)] * self.num_wheels
         
+        #
+        self.control_modes = ['disable','run','walk','roll','run_rtr']
+        
         
     # set wheel center positions assuming a rectangular wheel base 
     def set_centers(self):
@@ -75,6 +79,9 @@ class WheelDefinition:
         
         self.radius = 70
         
+        # list of lengths and angles defining the four bar mechanism
+        self.four_bar = FourBarDefinition()
+        
     def set_ratios(self):
         x = 1.0
         for stage in self.outer_stages:
@@ -97,7 +104,33 @@ class WheelDefinition:
             self.ext_step_ratio = EXT_DIFF[self.n_arc]
         except KeyError:
             print("Wheel has invalid number of legs/arcs")
-
+            
+class FourBarDefinition:
+    # This class is just used for storing parameters. The classes with IK and FK 
+    # functions are in the "wheg4bar.py" file
+    def __init__(self):
+        self.n_arc          = 4
+        self.arcPivotRadius = 0.0 # from arc/hub pivot to arc/link pivot
+        self.linkLength     = 0.0
+        self.inHubRadius    = 0.0
+        self.outHubRadius   = 0.0
+        self.arcLength      = 0.0 # from arc/hub pivot to center of tip radius
+        self.endRadius      = 0.0 # assume circular contact for tip of arc
+        self.pivotTheta     = 0.0 # (rad) angle around arc/hub pivot between line to tip and line to link pivot
+        
+    # return list for use in setting up the aforementioned class
+    def get_parameter_list(self):
+        return [self.n_arc,self.arcPivotRadius,self.linkLength,self.inHubRadius,self.outHubRadius,self.arcLength,self.endRadius,self.pivotTheta]
+        
+    def set_parameter_list(self,param):
+        self.n_arc       = int(param[0])
+        self.arcPivotRadius = param[1] # from arc/hub pivot to arc/link pivot
+        self.linkLength     = param[2]
+        self.inHubRadius    = param[3]
+        self.outHubRadius   = param[4]
+        self.arcLength      = param[5] # from arc/hub pivot to center of tip radius
+        self.endRadius      = param[6] # assume circular contact for tip of arc
+        self.pivotTheta     = param[7] # (rad)
         
 def get_config_A():
     # definin current prototype configuration
@@ -137,4 +170,8 @@ def get_config_A():
     robcfg.modules[3].set_ratios()
     robcfg.modules[3].n_arc = 5
     
+    para = [5, 15.0, 45.521, 30.0, 65.0, 62.337, 8.0, np.deg2rad(58.7)]
+    
+    for mod in robcfg.modules:
+        mod.four_bar.set_parameter_list(para)
     return robcfg
