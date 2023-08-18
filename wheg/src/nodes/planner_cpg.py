@@ -5,7 +5,7 @@ import time
 import numpy as np
 
 # local packages with wheg and cpg classes
-from wheg_utils.CPG_FIC import GeneratorFC
+from wheg_utils.central_pattern_generators import GeneratorFC
 from wheg_utils import robot_config
 
 robot = robot_config.get_config_A()
@@ -25,7 +25,7 @@ class Generator:
         self.n_whl = n_whl
 
         # "walking" gate, all wheel phases one quarter turn offset
-        self.cpg.weights = np.ones((4,4)) - np.eye(4)
+        self.cpg.weights_own = np.ones((4, 4)) - np.eye(4)
         self.cpg.biases = np.array([[0 ,2 ,1 ,3],
                                     [-2,0 ,-1,1],
                                     [-1,1 ,0 ,2],

@@ -19,7 +19,7 @@ plt.ion()
 
 # CPG object setup
 CPG = CPG_FIC(4)
-CPG.weights = np.zeros((4,4))
+CPG.weights_own = np.zeros((4, 4))
 CPG.gain_amp = 2.0
 
 CPG.target_amps = np.array([0.5,0.5,0.5,0.5])
@@ -30,10 +30,10 @@ CPG.biases = np.array([[0,0,0,1],
                        [1,0,0,0],
                        [0,1,0,0],
                        [0,0,1,0]]) * (np.pi/2)
-CPG.weights = np.array([[0,0,0,1],
-                       [1,0,0,0],
-                       [0,1,0,0],
-                       [0,0,1,0]]) * 0.2
+CPG.weights_own = np.array([[0, 0, 0, 1],
+                            [1,0,0,0],
+                            [0,1,0,0],
+                            [0,0,1,0]]) * 0.2
 
 T = 0.01
 Tstop = 40

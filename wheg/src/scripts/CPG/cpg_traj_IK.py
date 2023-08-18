@@ -31,7 +31,7 @@ gen1 = GeneratorFC(4)
 #                         [0,0,1,0]]) * (np.pi/4)
 
 # "walking" gate, all quarter turn off
-gen1.weights = np.ones((4,4)) - np.eye(4)
+gen1.weights_own = np.ones((4, 4)) - np.eye(4)
 gen1.biases = np.array([[0 ,2 ,1 ,3],
                         [-2,0 ,-1,1],
                         [-1,1 ,0 ,2],
