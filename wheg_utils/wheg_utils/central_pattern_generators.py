@@ -3,12 +3,36 @@ import numpy as np
 class CPG:
     #TODO fill out abstract class
     def euler_update(self,t_step):
+        """
+        Calculate new states and derivatives, update states according to Eulers method
+        :param t_step: time step to update over
+        """
         raise NotImplementedError
 
     def graph_output(self):
+        """
+        :return: array of floats with size = (N_oscillator,1)
+        :rtype: np.ndarray
+        """
         raise NotImplementedError
 
-# Implement fully connected Kuramoto oscillator network
+    def perturbation(self, n, sigmas):
+        """
+        Apply a random perturbation to the states of an oscillator
+        :param sigmas: array of std_deviation for each state
+        :param n: oscillator to apply the perturbation to
+        """
+        raise NotImplementedError
+
+    def reset_oscillators(self,n=0):
+        """
+        Reset the states of oscillators in the network
+        :param n: list of oscillators to reset, n=0 to reset all
+        :return:
+        """
+        raise NotImplementedError
+
+# Implement fully connected Kuramoto oscillator network TODO add reference
 class GeneratorKuramoto(CPG):
     def __init__(self, num_oscillator, default_weight=1.0, default_frequency=1.0):
         self.N = num_oscillator
@@ -37,6 +61,8 @@ class GeneratorKuramoto(CPG):
         self.gain_off = 2.0 # rad/s
         self.gain_amp = 2.0 # rad/s
 
+        self.random_state = np.random.RandomState(111)
+
     def euler_update(self, time_step):
         # eulers method, y(t+1) = y(t) + T*h(t,y)
         T = time_step
@@ -44,23 +70,24 @@ class GeneratorKuramoto(CPG):
         # for each oscillator
         for i in range(self.N):
 
-            # PHI UPDATE // get delta phase / dt
+            # PHI UPDATE // get (delta_phase / dt)
             delphi = self.own_freq[i]
             for j in range(self.N):
                 if j != i: # no self weights
                     inner = self.phi[j] - self.phi[i] - self.biases[i,j]
                     inner = np.sin(inner)
-                    delphi += self.weights[i,j] * self.amp[j] * inner
-                    #print(i,j,delphi)
+                    inner = self.weights[i,j] * self.amp[j] * inner
+                    delphi += inner
+
             self.phi[i] += T * delphi
 
-            # AMP UPDATE // delta^2 amplitude /d2t
+            # AMP UPDATE // (delta^2_amplitude / d^2t)
             inner = 0.25 * self.gain_amp * (self.target_amps[i]-self.amp[i])
             ddelamp = self.gain_amp * (inner - self.d_amp[i])
             self.d_amp[i] += T * ddelamp
             self.amp[i] += T * self.d_amp[i]
 
-            # OFF UPDATE // delta^2 offsets /d2t
+            # OFF UPDATE // (delta^2_offsets / d^2t)
             inner = 0.25 * self.gain_off * (self.target_offs[i] - self.off[i])
             ddeloff = self.gain_off * (inner - self.d_off[i])
             self.d_off[i] += T * ddeloff
@@ -71,11 +98,11 @@ class GeneratorKuramoto(CPG):
         self.amp = self.target_amps
         self.off = self.target_offs
 
-    def pertubation(self,sigmas,random_state=np.random.RandomState(111)):
+    def perturbation(self,n,sigmas):
         # gaussian additive noise
-        phi_noise = random_state.randn(self.N) * sigmas[0]
-        amp_noise = random_state.randn(self.N) * sigmas[1]
-        off_noise = random_state.randn(self.N) * sigmas[2]
+        phi_noise = self.random_state.randn(self.N) * sigmas[0]
+        amp_noise = self.random_state.randn(self.N) * sigmas[1]
+        off_noise = self.random_state.randn(self.N) * sigmas[2]
 
         self.phi += phi_noise
         self.amp += amp_noise
@@ -88,7 +115,8 @@ class GeneratorKuramoto(CPG):
             theta[i] = self.off[i] + self.amp[i] * np.sin(self.phi[i])
         return theta
 
-# Implement Matsuoka oscillator network (from: DOI:10.1109/GCIS.2012.99)
+# Implement Matsuoka oscillator network
+# Model retrieved from: DOI:10.1109/GCIS.2012.99
 class GeneratorMatsuoka(CPG):
     def __init__(self,num_oscillators,default_weight=1.0,default_frequency=1.0):
         # define constant parameters
@@ -150,39 +178,41 @@ class GeneratorMatsuoka(CPG):
     def graph_output(self):
         return [wye[0]-wye[1] for wye in self.y.tolist(axis=0)]
 
-# Implement Matsuoka oscillator with two neurons
+# Implement separate Matsuoka oscillators with two neurons
 class GeneratorMatsuokaSingle(CPG):
     def __init__(self,num_oscillators,default_weight=1.0,default_frequency=1.0):
         # define constant parameters
         self.N = num_oscillators
         self.time_constants = np.ones((2,self.N)) * 1/default_frequency
-        self.weights_own = np.ones((4, self.N)) * default_weight
-        self.weights_mut = np.ones((4, self.N)) * default_weight
-        self.weights_btwn = (np.ones((self.N,self.N)) - np.eye(self.N))*default_weight
+        self.weights_own = np.ones((2, self.N)) * default_weight #B
+        self.weights_mut = np.ones((2, self.N)) * default_weight #W
 
         # define dynamic variables
-        self.state = np.zeros((4,self.N)) #[u1, u2, v1, v2]^T
-        self.dstate = np.zeros((4,self.N))
-        self.output = np.zeros((2,self.N))
+        self.state = np.zeros((4,self.N))  # [u1, u2, v1, v2]^T
+        self.dstate = np.zeros((4,self.N)) # d_state/dt
+        self.output = np.zeros((2,self.N)) # [y1, y2]^T
 
-        self.input = np.zeros((1,self.N))
+        self.input = np.zeros((1,self.N))  # [s0]
 
     def euler_update(self,t_step):
         for n in range(self.N):
-            # first 2 state derivatives
             for i in [0,1]:
                 # calculate neuron output
                 self.output[i, n] = max(0, self.state[i, n])
 
-                # calculate weighted sum of other oscillator influence
-                self.dstate[i,n] = - self.state[i,n] \
-                                   - self.output[i,n] * self.weights_own[i, n] \
-                                   - self.state[i+2, n] * self.weights_mut[i,n] \
-                                   + self.input
+            for i in [0,1]:
+                j = [1,0] # use to select output from other neuron
+                # first 2 state derivatives (potential terms)
+                # T*u_dot(i) = -u(i) - w(ij)*y(j) - b(i)*v(i) + s0
+                self.dstate[i,n] = ((- self.state[i,n]
+                                   - self.output[j[i],n] * self.weights_mut[i, n]
+                                   - self.state[i+2, n] * self.weights_own[i,n]
+                                   + self.input)
+                                   / self.time_constants[0,n])
 
-            # second 2 state derivatives
+            # second 2 state derivatives (inhibitor terms)
             for i in [2,3]:
-                self.dstate[i,n] = -self.state[i,n] + self.output[i-2,n]
+                self.dstate[i,n] = (-self.state[i,n] + self.output[i-2,n]) / self.time_constants[1,n]
 
         # apply derivatives
         self.state += self.dstate*t_step

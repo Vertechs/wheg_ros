@@ -1,7 +1,7 @@
 import numpy as np
-from wheg.wheg_utils.classes.whegs import WhegFourBar
+from wheg_utils.four_bar_wheg import WhegFourBar
 import matplotlib.pyplot as plt
-from wheg.wheg_utils.classes.CPG_FIC import CPG_FIC
+from wheg_utils.central_pattern_generators import GeneratorKuramoto
 
 parameters = [5,15.0,45.521,
               30.0,65.0,62.337,
@@ -11,7 +11,7 @@ names = ["1","2","3","4"]
 for i in range(4):
     whl.append(WhegFourBar(parameters,names[i]))
 
-gen1 = GeneratorFC(4)
+gen1 = GeneratorKuramoto(4)
 
 # gen1.weights = np.array([[0,0,0,0],
 #                        [1,0,0,0],
@@ -31,7 +31,7 @@ gen1 = GeneratorFC(4)
 #                         [0,0,1,0]]) * (np.pi/4)
 
 # "walking" gate, all quarter turn off
-gen1.weights_own = np.ones((4, 4)) - np.eye(4)
+gen1.weights = np.ones((4, 4)) - np.eye(4)
 gen1.biases = np.array([[0 ,2 ,1 ,3],
                         [-2,0 ,-1,1],
                         [-1,1 ,0 ,2],
@@ -61,17 +61,18 @@ def out_callback(off,amp,phi):
     return np.cos(phi),stp,amp
 
 
-gen1.pertubation([0.1,0.1,0])
+gen1.perturbation([0.1, 0.1, 0])
 for i in range(max_iter):
     # update CPG and get output
-    output = gen1.euler_update(T,out_callback)
+    gen1.euler_update(T)
+    output = out_callback(gen1.off,gen1.amp,gen1.phi)
     dis_out = output[:,0]
     stp_out = output[:,1]
     amp_out = output[:,2]
     time[i] = i*T
     gen_out[:, i] = dis_out
 
-    gen1.pertubation([0.01, 0.01, 0.01])
+    gen1.perturbation([0.01, 0.01, 0.01])
 
     posx = amp_out
     posy = dis_out*step_max

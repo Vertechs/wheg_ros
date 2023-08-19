@@ -54,7 +54,7 @@ def out_callback(off,amp,phi):
     return ph1,ph2
 
 
-gen1.pertubation([.1,.1,0])
+gen1.perturbation([.1, .1, 0])
 for i in range(max_iter):
     # update CPG and get output
     output = gen1.euler_update(T,out_callback)
