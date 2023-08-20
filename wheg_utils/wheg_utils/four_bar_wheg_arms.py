@@ -101,16 +101,19 @@ class WhegFourBar:
 
         return endx,endy
 
-    def calc_single_FK(self, ph1, ph2):
-        Ax = self.outHubRadius * np.cos(ph1)
-        Ay = self.outHubRadius * np.sin(ph1)
+    def calc_single_FK(self, ph1, ph2, n):
+        ph1_n = ph1 + n*self.angle
+        ph2_n = ph2 + n*self.angle
+        Ax = self.outHubRadius * np.cos(ph1_n)
+        Ay = self.outHubRadius * np.sin(ph1_n)
 
         thetaA,thetaC = self.calc_int_angles(ph1,ph2)
+        print(np.rad2deg([thetaA,thetaC]))
 
         endx = Ax + self.arcLength * np.cos(ph1+thetaA)
         endy = Ay + self.arcLength * np.sin(ph1+thetaA)
 
-        return endx,endy
+        return Ax,Ay
 
     def update_angles(self):
         self.thA,self.thC = self.calc_int_angles(self.phi1,self.phi2)

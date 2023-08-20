@@ -1,4 +1,4 @@
-from wheg_utils.four_bar_wheg import WhegFourBar
+from wheg_utils.four_bar_wheg_arms import WhegFourBar
 import numpy as np
 
 # storing robot configs as python classes instead of in ROS params

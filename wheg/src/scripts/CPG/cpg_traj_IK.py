@@ -1,5 +1,5 @@
 import numpy as np
-from wheg_utils.four_bar_wheg import WhegFourBar
+from wheg_utils.four_bar_wheg_arms import WhegFourBar
 import matplotlib.pyplot as plt
 from wheg_utils.central_pattern_generators import GeneratorKuramoto
 

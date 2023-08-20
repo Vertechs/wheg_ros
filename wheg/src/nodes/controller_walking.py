@@ -7,7 +7,7 @@ import struct
 from std_msgs.msg import Float32MultiArray, UInt8MultiArray
 
 # local package, install as editable
-from wheg_utils.four_bar_wheg import WhegFourBar
+from wheg_utils.four_bar_wheg_arms import WhegFourBar
 from wheg_utils import robot_config
 robot = robot_config.get_config_A()
 

@@ -24,10 +24,37 @@ class CPG:
         """
         raise NotImplementedError
 
-    def reset_oscillators(self,n=0):
+    def reset_oscillators(self,n):
         """
         Reset the states of oscillators in the network
-        :param n: list of oscillators to reset, n=0 to reset all
+        :param n: list of oscillators to reset, n=-1 to reset all
+        :return:
+        """
+        raise NotImplementedError
+
+    def command_input(self,v : np.ndarray,e : np.ndarray):
+        """
+        Apply commanded wheel velocities and extensions to CPG paramters
+        :param v: velocities of each wheel, size should match number of oscillators
+        :param e: extensions of each wheel, "^   "
+        :return:
+        """
+        raise NotImplementedError
+
+    def wheel_output(self):
+        """
+        Send wheel position commands as lists of rotation and extension values
+        :return: rot,ext
+        :rtype rot: list
+        :rtype ext: list
+        """
+        raise NotImplementedError
+
+    def wheel_feedback(self,rot,ext):
+        """
+        Update internal states or apply feedback signal using wheel position estimates passed up from controller
+        :param rot: array or list of phase position values for each wheel
+        :param ext: array or list of extension amounts for each wheel
         :return:
         """
         raise NotImplementedError
@@ -115,24 +142,30 @@ class GeneratorKuramoto(CPG):
             theta[i] = self.off[i] + self.amp[i] * np.sin(self.phi[i])
         return theta
 
+
+
 # Implement Matsuoka oscillator network
 # Model retrieved from: DOI:10.1109/GCIS.2012.99
-class GeneratorMatsuoka(CPG):
+class GeneratorMatsuokaNet(CPG):
     def __init__(self,num_oscillators,default_weight=1.0,default_frequency=1.0):
         # define constant parameters
         self.N = num_oscillators
         self.time_constants = np.ones((2,self.N)) * 1/default_frequency
-        self.w_own = np.ones((2, self.N)) * default_weight
-        self.w_mut = np.ones((2, self.N)) * default_weight
-        self.w_btwn = (np.ones((self.N,self.N)) - np.eye(self.N))*default_weight
+        # intra-oscillator weights
+        self.w_own = np.ones((2, self.N)) * default_weight # neuron self-inhibition
+        self.w_mut = np.ones((2, self.N)) * default_weight # opposing neuron inhibition
+        # weights of influence between oscillators, hollow (-)ones matrix by default
+        self.w_inter = -1.0 * (np.ones((self.N, self.N)) - np.eye(self.N)) * default_weight
 
         # define dynamic variables
         self.u = np.zeros((2,self.N))
         self.v = np.zeros((2,self.N))
         self.y = np.zeros((2,self.N))
         self.s = 0.0
-        self.du = self.u
-        self.dv = self.v
+        self.du = np.zeros((2,self.N))
+        self.dv = np.zeros((2,self.N))
+
+        self.feed = np.zeros(self.N)
 
     def euler_update(self,t_step):
         # calculate neuron outputs for all neurons
@@ -141,32 +174,39 @@ class GeneratorMatsuoka(CPG):
             for e in [0,1]:
                 self.y[e,i] = max(0, self.u[e,i])
 
-        # calculate state derivatives
+        # calculate state derivatives for each oscillator
         for i in range(self.N):
             # calculate for extensor and flexor neuron
             for e in [0, 1]:
-                # calculate weighted sum of other oscillator influence
-                btwn_sum = 0
-                for j in range(self.N):
-                    btwn_sum += self.w_btwn[i,j]*self.y[e,j]
-
                 # get index of other neuron in own oscillator: [1,0]
-                if e == 1: f=0
-                else: f=1
+                f = int(not e)
 
-                # calculate second state (v) derivative
-                self.dv[e,i] = -self.v[e,i] + self.y[e,i]
+                # calculate weighted sum of other oscillator influence
+                inter_sum = 0
+                for j in range(self.N):
+                    inter_sum += self.w_inter[i, j] * self.y[e, j]
 
                 # calculate first state (u) derivative
-                self.du[e,i] = - self.u[e,i] \
-                               - self.w_mut[e,i]*self.y[f,i] \
-                               - self.w_own[e,i]*self.v[e,i] \
-                               - btwn_sum - self.s
+                self.du[e,i] = ((-self.u[e,i]
+                               - self.w_mut[e,i]*self.y[f,i]
+                               - self.w_own[e,i]*self.v[e,i]
+                               + inter_sum + self.feed[i] + self.s)
+                               / self.time_constants[0,i])
+
+                # calculate second state (v) derivative
+                self.dv[e,i] = (-self.v[e,i] + self.y[e,i]) / self.time_constants[1,i]
+
         # apply derivatives
         self.u += self.du*t_step
         self.v += self.dv*t_step
 
-    def set_state(self,n,u1,v1,u2,v2):
+    def set_state_all(self,state):
+        self.u[0,:] = state[0,:]
+        self.u[1,:] = state[1,:]
+        self.v[0,:] = state[2,:]
+        self.v[1,:] = state[3,:]
+
+    def set_state_single(self,n,u1,v1,u2,v2):
         self.u[0, n] = u1
         self.v[0, n] = v1
         self.u[1, n] = u2
@@ -176,9 +216,18 @@ class GeneratorMatsuoka(CPG):
         self.s = in_val
 
     def graph_output(self):
-        return [wye[0]-wye[1] for wye in self.y.tolist(axis=0)]
+        return self.y[1,:] - self.y[0,:]
 
-# Implement separate Matsuoka oscillators with two neurons
+    def wheel_output(self):
+        return np.max(self.y,axis=0)
+
+    def state_output(self):
+        return np.vstack([self.u,self.v])
+
+
+
+
+# Implement separate Matsuoka oscillators with two neurons each
 class GeneratorMatsuokaSingle(CPG):
     def __init__(self,num_oscillators,default_weight=1.0,default_frequency=1.0):
         # define constant parameters
@@ -224,6 +273,101 @@ class GeneratorMatsuokaSingle(CPG):
         self.input[0,n] = in_val
 
     def graph_output(self):
-        return [np.max(u) for u in self.state[0:2]]
+        return self.output[1,:] - self.output[0,:]
+
+
+# Implementing Hopf oscillator with variable speed
+# TODO add source (currently DOI:10.1109/ROBOT.2008.4543306)
+class GeneratorHopfMod(CPG):
+    def __init__(self, num_oscillators, default_weight=1.0, default_frequency=1.0):
+        #==Constant Parameters==#
+        self.N = num_oscillators
+        self.freq = np.zeros((1,self.N))
+        self.weights_converge = np.ones((2,self.N))
+        self.amplitude = np.ones((1,self.N))
+        self.weights_inter = np.ones((self.N,self.N))
+
+        #==Dynamic Variables==#
+        self.state = np.zeros((2,self.N))
+        self.dstate = np.zeros((2,self.N))
+        self.radius = np.zeros((1,self.N))
+
+        # input applied only to the second state variable (y)
+        self.input = 0.0
+
+
+    def euler_update(self, t_step):
+        for i in range(self.N):
+            # TODO add frequency shaping math
+            # self.freq =
+            self.radius[0,i] = np.linalg.norm(self.state[:,i])
+
+            # coupling term is applied only on the second state variable (y)
+            inter_sum = 0
+            for j in range(self.N):
+                inter_sum += self.weights_inter[i,j] * self.state[1,j]
+
+            # dx/dt = a*(u-r^2)*x - w*y
+            self.dstate[0,i] = (self.weights_converge[0,i] * (self.amplitude[0,i] - self.radius[0,i]**2) * self.state[0,i]
+                                - self.freq[0,i] * self.state[1,i])
+            # dy/dt = a*(u-r^2)*y - w*x
+            self.dstate[1, i] = (self.weights_converge[1,i] * (self.amplitude[0,i] - self.radius[0, i] ** 2) * self.state[1, i]
+                                 + self.freq[0,i] * self.state[0, i] + inter_sum + self.input)
+
+        # apply derivatives by euler method
+        self.state += self.dstate * t_step
+
+    def set_state(self, n, state):
+        self.state[:, n] = state
+
+    def phase_output(self):
+        # return limit circle radius and current phase
+        return np.vstack(self.radius,np.arctan2(self.state[1,:],self.state[0,:]))
+
+    def graph_output(self):
+        return self.state[0,:]
+
+class GeneratorVdpNet(CPG):
+    def __init__(self,num_oscillators):
+        # Static parameters
+        self.N = num_oscillators
+        self.para = np.ones((3,self.N)) # a, p^2, w^2
+        # weights should be small compared to amplitude
+        self.weights = (np.ones((self.N,self.N)) - np.eye(self.N)) * -0.2
+
+        # Dynamic variables
+        self.x = np.zeros(self.N)
+        self.y = np.zeros(self.N)
+        self.dx = np.zeros(self.N)
+        self.dy = np.zeros(self.N)
+
+    def euler_update(self,t_step):
+        for i in range(self.N):
+            inter_sum = self.x[i]
+            for j in range(self.N):
+                inter_sum += self.weights[i,j] * self.x[j]
+
+            self.dy[i] = (self.para[0,i] * (self.para[1,i] - inter_sum**2) * self.dx[i]
+                          - self.para[2,i] * inter_sum)
+            self.dx[i] = self.y[i]
+
+        self.x += self.dx*t_step
+        self.y += self.dy*t_step
+
+    def set_state(self,n,x,y):
+        self.x[n] = x
+        self.y[n] = y
+
+    def state_output(self,n):
+        return np.vstack([self.x[n],self.y[n]])
+
+    def phase_output(self):
+        # return x component and current phase
+        return np.vstack(self.x,np.arctan2(self.x,self.y))
+
+    def graph_output(self):
+        return self.x
+
+
 
 
