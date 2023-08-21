@@ -11,40 +11,84 @@ parameters = [5,15.0,45.521,
 
 wheel = WhegFourBar(parameters, "wheg")
 
-steps = 100
-rotation = 1
+plot = False
+
+iters = 101
+steps = 1
 
 x_start = 90
-x_stop = -50
-com_height = 30
+x_stop = -90
+com_height = 80
 
-trajectory = np.zeros((2, rotation * steps))
-xy = np.zeros((2,rotation * steps))
+trajectory = np.zeros((2, steps * iters))
+xy = np.zeros((2, steps * iters))
+torques = np.zeros((2,steps*iters))
 
 
-for i in range(rotation):
-    x = x_start
+plt.ion()
+if plot:
+    plt.figure(1)
+    plt.subplot(111)
+    plt.show()
+    color=['ob','ob','og','*k','xb']
 
-    y = -com_height
-    for j in range(steps):
+x = x_start
+y = -com_height
+contact = False
 
-        wheel.move_IK(x, y, i % 5)
+for S in range(steps):
+    if not contact:
+        x = x_start
+    contact = False
 
-        trajectory[0, steps * i + j] = np.rad2deg(wheel.phi1)
-        trajectory[1, steps * i + j] = np.rad2deg(wheel.phi2)
+    for j in range(iters):
 
-        P,_ = wheel.calc_FK(wheel.phi1, wheel.phi2)
+        wheel.move_IK(x, y, S % 5)
 
-        xy[:, steps * i + j] = np.array([P[0],P[1]])
+        trajectory[0, iters * S + j] = np.rad2deg(wheel.phi1)
+        trajectory[1, iters * S + j] = np.rad2deg(wheel.phi2)
 
-        x += (x_stop - x_start)/steps
-        break
+        torques[:, iters*S+j] = np.array(wheel.calc_torques(0,10))
+
+        # get phases for one arc behind current
+        pi1 = wheel.phi1 + wheel.stepAngle
+        pi2 = wheel.phi2 + wheel.stepAngle
+
+        P,_ = wheel.calc_FK(pi1, pi2)
+        xy[:, iters * S + j] = np.array([P[0], P[1]])
+
+        # check if trailing arc made contact with ground
+        # if P[1] <= y:
+        #     # set new x value, break out of loop to increment i
+        #     x = P[0]
+        #     contact = True
+        #     break
+
+        x += (x_stop - x_start) / iters
+
+        if plot:
+            A = _[0]
+            B = _[1]
+            plt.clf()
+            for p in range(5):
+                plt.plot(wheel.get_points()[p,0],wheel.get_points()[p,1],color[p])
+
+            plt.plot(A[0], A[1],'*y')
+            plt.plot(P[0], P[1], 'xy')
+            plt.plot(B[0], B[1], '*y')
+            plt.legend(['A', 'B', 'C', 'D', 'P', 'P(FK)'])
+            plt.xlim([-100, 100])
+            plt.ylim([-100, 100])
+            plt.draw()
+            plt.pause(0.01)
+
+
 
 np.savetxt("traj.csv", np.deg2rad(trajectory), delimiter=",")
 
 diff = trajectory[0,:] - trajectory[1,:]
 
-plt.figure(1)
+plt.figure(2)
 plt.subplot(221)
 plt.plot(trajectory.T)
 plt.legend(["phi1","phi2"])
@@ -55,5 +99,9 @@ plt.plot(diff.T)
 plt.subplot(223)
 plt.plot(xy.T)
 plt.legend(["x","y"])
+
+plt.subplot(224)
+plt.plot(torques.T)
+plt.legend(['T1','T2'])
 
 plt.show(block=True)

@@ -84,15 +84,11 @@ class WhegFourBar:
         xm = x1+cd*(x2-x1)/d # point in middle of intersection lense
         ym = y1+cd*(y2-y1)/d
 
-        # get quadrant in order to return correct intersect point
-        s = 1
-        if (dx > 0 and dy > 0) or (dx<0 and dy<0):
-            s = -1
-        s = s * side
+        # print(' s:',side,'dx',dx,'dy',dy,end='')
 
         # pick intersection point based on side
-        xi = xm + s * ch * dy/d
-        yi = ym - s * ch * dx/d
+        xi = xm + side * ch * dy/d
+        yi = ym - side * ch * dx/d
         return xi,yi
 
     def move_IK(self, px, py, n=None):
@@ -107,16 +103,18 @@ class WhegFourBar:
         self.P[0] = px
         self.P[1] = py
         self.A[:] = self.circle_intersect(0, 0, self.outHubRadius, self.P[0], self.P[1], self.arcLength, -1)
+        # print(' A:',self.A,end='')
         self.pO = arctan2(self.A[1], self.A[0]) # A-D but D is always 0,0
         self.thAP = arctan2(self.P[1]-self.A[1],self.P[0]-self.A[0])
 
         # from point A and thAP calculate angle and points for actuating bar
         self.thAB = self.thAP - self.pivotAngle
         self.B[:] = self.A + [cos(self.thAB) * self.arcPivotLength, sin(self.thAB) * self.arcPivotLength]
-        self.C[:] = self.circle_intersect(0, 0, self.inHubRadius, self.B[0], self.B[1], self.linkLength, 1)
+        # print(' B:',self.B,end='')
+        self.C[:] = self.circle_intersect(0, 0, self.inHubRadius, self.B[0], self.B[1], self.linkLength, -1)
+        # print(' C:',self.C,end='\n')
         self.thCB = arctan2(self.B[1]-self.C[1],self.B[0]-self.C[0])
         self.pI = arctan2(self.C[1],self.C[0])
-        print(self.A, self.B, self.C)
 
         # update actual phase values
         self.phi1 = self.pO + self.stepAngle * self.offset
@@ -140,7 +138,7 @@ class WhegFourBar:
         self.C[:] = [cos(self.pI)*self.inHubRadius,sin(self.pI)*self.inHubRadius]
 
         # get B position from A and C and link and arc link lengths
-        self.B[:] = self.circle_intersect(self.A[0],self.A[1],self.arcPivotLength,self.C[0],self.C[1],self.linkLength,1)
+        self.B[:] = self.circle_intersect(self.A[0],self.A[1],self.arcPivotLength,self.C[0],self.C[1],self.linkLength,-1)
         self.thCB = arctan2(self.B[1]-self.C[1],self.B[0]-self.C[0])
         self.thAB = arctan2(self.B[1]-self.A[1],self.B[0]-self.A[0])
         self.thAP = self.thAB + self.pivotAngle
@@ -149,37 +147,45 @@ class WhegFourBar:
     def calc_FK(self, pO, pI):
         # calculate FK values without changing any states
 
-        # get positions of A and C pivots immediately
+        # get positions of A and C pivots directly from hub phases
         A = np.array([cos(pO)*self.outHubRadius,sin(pO)*self.outHubRadius])
         C = np.array([cos(pI)*self.inHubRadius,sin(pI)*self.inHubRadius])
-        print(A,C)
 
         # get B position from A and C and link and arc link lengths
-        B = np.array(self.circle_intersect(A[0],A[1],self.arcPivotLength,C[0],C[1],self.linkLength,1))
+        B = np.array(self.circle_intersect(A[0],A[1],self.arcPivotLength,C[0],C[1],self.linkLength,-1))
         thCB = arctan2(B[1]-C[1],B[0]-C[0])
         thAB = arctan2(B[1]-A[1],B[0]-A[0])
+
+        # get end point position from A and theta AP
         thAP = thAB + self.pivotAngle
-        P = np.array([A[0]+cos(self.thAP),A[1]+sin(self.thAP)])
+        P = np.array([A[0]+cos(thAP)*self.arcLength,A[1]+sin(thAP)*self.arcLength])
         return P, [A,B,C,thCB,thAB,thAP]
 
     def calc_torques(self, Fx, Fz):
         # TODO check output
         # get moment about point A (arc pivot) from end point force
-        Lx = self.L[0] - self.A[0]
-        Lz = self.L[1] - self.L[1]
+        Lx = self.P[0] - self.A[0]
+        Lz = self.P[1] - self.A[1]
         M_L = -Lz * Fx + Lx * Fz
 
-        # get force on link (compression negative)
-        a1 = self.pI + self.thA + self.pivotTheta
-        a2 = self.pO + self.thC
-        F_l = M_L / ((-np.sin(a1) * np.cos(a2) + np.cos(a1) * np.sin(a2)) * self.arcPivotLength)
+        # get force from link, tension positive
+        Bx = self.B[0] - self.A[0]
+        Bz = self.B[1] - self.A[1]
+        cosCB = cos(self.thCB)
+        sinCB = sin(self.thCB)
+        print(Bx,Bz,cosCB,sinCB)
+        T_L = -M_L / (Bz * cosCB - Bx * sinCB)
 
-        # get inner torque from link force
-        T2 = -F_l * cos(self.thC)
+        # get torque on inner hub from link tension and C position
+        T2 = -T_L * (self.C[0] * sinCB + self.C[1]*cosCB)
 
-        # get outer torque from arc and link force
-        F_Ax = Fx - F_l * cos(a2)
-        F_Ay = Fz - F_l * sin(a2)
-        T1 = (F_Ax * sin(self.pI) + F_Ay * cos(self.pI)) * self.outHubRadius
+        AFz = T_L * sinCB - Fz
+        AFx = T_L * cosCB - Fx
+        T1 = -AFx*self.A[1] + AFz*self.A[0]
+
+        print(M_L,T_L,AFz,AFx)
 
         return T1, T2
+
+    def get_points(self):
+        return np.vstack([self.A,self.B,self.C,self.D,self.P])
