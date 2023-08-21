@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from numpy import sin,cos,tan,arctan2,arccos
+from numpy import sin,cos,tan,arctan2,arccos,pi
 
 # Four bar mechanism with separately driven inner and outer hub
 # assuming crossed links in closed position
@@ -32,7 +32,7 @@ class WhegFourBar:
 
         # calc extra parameters
         self.arcRadius = self.outHubRadius
-        self.stepAngle = 2 * np.pi / self.arcN
+        self.stepAngle = 2 * pi / self.arcN
 
         # dynamic variables
         self.pO = 0.0  # phase of outer hub to be used in 4 bar calcs for active arc
@@ -73,11 +73,11 @@ class WhegFourBar:
 
         # check if circles intersect
         if d > r1+r2:
-            return 'circles too far'
+            raise Exception('circles too far')
         elif d < np.abs(r1-r2):
-            return 'circles nested'
+            raise Exception('circles nested')
         elif d == 0:
-            return 'circles same point'
+            raise Exception('circles same point')
 
         cd = (r1**2-r2**2+d**2) / (2*d) # chord distance along center line
         ch = np.sqrt(r1**2-cd**2) # height of intersect from chord
@@ -142,7 +142,7 @@ class WhegFourBar:
         self.thCB = arctan2(self.B[1]-self.C[1],self.B[0]-self.C[0])
         self.thAB = arctan2(self.B[1]-self.A[1],self.B[0]-self.A[0])
         self.thAP = self.thAB + self.pivotAngle
-        self.P[:] = [self.A[0]+cos(self.thAP),self.A[1]+sin(self.thAP)]
+        self.P[:] = [self.A[0]+cos(self.thAP)*self.arcLength,self.A[1]+sin(self.thAP)*self.arcLength]
 
     def calc_FK(self, pO, pI):
         # calculate FK values without changing any states

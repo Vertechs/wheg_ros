@@ -85,8 +85,8 @@ gen5.weights_mut[:, 0] = np.ones(2) * 2.5
 
 
 ## Generating and graphing CPG outputs
-t_max = 2.5
-t_step = 0.001
+t_max = 40
+t_step = 0.01
 max_iter = int(t_max/t_step)
 
 y1 = np.zeros((max_iter,4))
@@ -112,6 +112,10 @@ for t in range(max_iter):
     y2[t,:] = gen2.graph_output()
     y3[t,:] = gen3.graph_output()
     y4[t,:] = gen4.graph_output()
+
+    if t == int(20/t_step):
+        gen1.command_input()
+
 
 
 ax1.plot(x,y1)

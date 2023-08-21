@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class CPG:
     #TODO fill out abstract class
     def euler_update(self,t_step):
@@ -32,18 +33,20 @@ class CPG:
         """
         raise NotImplementedError
 
-    def command_input(self,v : np.ndarray,e : np.ndarray):
+    def command_input(self,v : np.ndarray,e : np.ndarray, n_arc : int, radius_ratio):
         """
         Apply commanded wheel velocities and extensions to CPG paramters
         :param v: velocities of each wheel, size should match number of oscillators
         :param e: extensions of each wheel, "^   "
+        :param n_arc: number of arcs in wheel, used to scale oscillator frequency
         :return:
         """
         raise NotImplementedError
 
-    def wheel_output(self):
+    def wheel_output(self,n_arc):
         """
         Send wheel position commands as lists of rotation and extension values
+        # TODO better way to handle number of arcs
         :return: rot,ext
         :rtype rot: list
         :rtype ext: list
@@ -58,6 +61,8 @@ class CPG:
         :return:
         """
         raise NotImplementedError
+
+
 
 # Implement fully connected Kuramoto oscillator network TODO add reference
 class GeneratorKuramoto(CPG):
@@ -141,6 +146,16 @@ class GeneratorKuramoto(CPG):
         for i in range(self.N):
             theta[i] = self.off[i] + self.amp[i] * np.sin(self.phi[i])
         return theta
+
+    def wheel_output(self, n_arc):
+        values = self.amp * np.sing(self.phi) + self.off
+        return self.phi, values
+
+    def command_input(self,v : np.ndarray,e : np.ndarray, n_arc : int, radius_ratio):
+        for i in range(self.N):
+            self.own_freq[i] = v[i] * n_arc
+            self.a
+
 
 
 

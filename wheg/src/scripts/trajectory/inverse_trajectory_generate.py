@@ -11,7 +11,7 @@ parameters = [5,15.0,45.521,
 
 wheel = WhegFourBar(parameters, "wheg")
 
-plot = False
+plot = True
 
 iters = 101
 steps = 1
@@ -51,8 +51,8 @@ for S in range(steps):
         torques[:, iters*S+j] = np.array(wheel.calc_torques(0,10))
 
         # get phases for one arc behind current
-        pi1 = wheel.phi1 + wheel.stepAngle
-        pi2 = wheel.phi2 + wheel.stepAngle
+        pi1 = wheel.phi1 #+ wheel.stepAngle
+        pi2 = wheel.phi2 #+ wheel.stepAngle
 
         P,_ = wheel.calc_FK(pi1, pi2)
         xy[:, iters * S + j] = np.array([P[0], P[1]])
