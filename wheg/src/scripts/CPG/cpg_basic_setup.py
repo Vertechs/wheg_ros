@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from wheg_utils.central_pattern_generators import GeneratorKuramoto
+from wheg_utils.generators.kuramoto_net import GeneratorKuramoto
 
 # # Tkinter setup
 # root = tk.Tk()

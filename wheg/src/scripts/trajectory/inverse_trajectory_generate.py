@@ -16,21 +16,24 @@ plot = True
 iters = 101
 steps = 1
 
-x_start = 90
-x_stop = -90
 com_height = 80
+# x position at switch will always be when leg is 1/2*1/N rotations behind
+x_start = np.sin(2*np.pi/5) * com_height
+x_stop = -x_start
 
 trajectory = np.zeros((2, steps * iters))
 xy = np.zeros((2, steps * iters))
 torques = np.zeros((2,steps*iters))
 
 
+
 plt.ion()
+color = ['ob', 'ob', 'og', '*k', 'xb']
 if plot:
     plt.figure(1)
     plt.subplot(111)
     plt.show()
-    color=['ob','ob','og','*k','xb']
+
 
 x = x_start
 y = -com_height
@@ -50,12 +53,16 @@ for S in range(steps):
 
         torques[:, iters*S+j] = np.array(wheel.calc_torques(0,10))
 
-        # get phases for one arc behind current
-        pi1 = wheel.phi1 #+ wheel.stepAngle
-        pi2 = wheel.phi2 #+ wheel.stepAngle
+        # get phases for current and one arc behind current
+        pi1 = wheel.phi1
+        pi2 = wheel.phi2
+        pii1 = wheel.phi1  + wheel.stepAngle
+        pii2 = wheel.phi2  + wheel.stepAngle
 
-        P,_ = wheel.calc_FK(pi1, pi2)
-        xy[:, iters * S + j] = np.array([P[0], P[1]])
+
+        P2,_ = wheel.calc_FK(pi1, pi2)
+        P,_ = wheel.calc_FK(pii1,pii2)
+        xy[:, iters * S + j] = np.array([P2[0], P2[1]])
 
         # check if trailing arc made contact with ground
         # if P[1] <= y:

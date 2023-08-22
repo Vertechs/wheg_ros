@@ -1,11 +1,12 @@
 import numpy as np
 
 class DiffDriveFour:
-    def __init__(self,closed_radius,extended_radius,wheel_dist):
+    def __init__(self,closed_radius,extended_radius,wheel_dist,number_arcs):
         self.rad = closed_radius
         self.ext_rad = extended_radius
         self.dist = wheel_dist
         self.A = np.array([[1, -1], [-1, -1], [1, -1], [-1, -1]])
+        self.n_arc = number_arcs
 
     def diff_drive_four(self, v, w, h):
         # extension as ratio of radius

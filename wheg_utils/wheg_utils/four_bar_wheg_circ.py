@@ -56,6 +56,11 @@ class WhegFourBar:
         self.thAB = 0.0 # angle of the A->B vector
         self.thCB = 0.0 # angle of the C->B vector
 
+        # calculate phase difference for extension
+        p0, p1 = self.calc_IK(self.outHubRadius, 0.0)
+        self.p_closed = p1 - p0
+        p0, p1 = self.calc_IK(self.outHubRadius + self.arcLength, 0.0)
+        self.p_open = p1 - p0
 
     def __str__(self):
         return self.name + " ph1=%.4f ph2=%.4f" % (self.pI, self.pO)
@@ -119,6 +124,28 @@ class WhegFourBar:
         # update actual phase values
         self.phi1 = self.pO + self.stepAngle * self.offset
         self.phi2 = self.pI + self.stepAngle * self.offset
+
+    def calc_IK(self, px, py):
+        """
+        Calculate IK phases without changing state variables
+        """
+        # from end point we can get point A, from those we can get outer hub (phi1) and angle of leg (thA)
+        P = np.array([px,py])
+        A = np.array(self.circle_intersect(0, 0, self.outHubRadius, P[0], P[1], self.arcLength, -1))
+        # print(' A:',self.A,end='')
+        pO = arctan2(A[1], A[0])  # A-D but D is always 0,0
+        thAP = arctan2(P[1] - A[1], P[0] - A[0])
+
+        # from point A and thAP calculate angle and points for actuating bar
+        thAB = thAP - self.pivotAngle
+        B = A + [cos(thAB) * self.arcPivotLength, sin(thAB) * self.arcPivotLength]
+        # print(' B:',self.B,end='')
+        C = np.array(self.circle_intersect(0, 0, self.inHubRadius, B[0], B[1], self.linkLength, -1))
+        # print(' C:',self.C,end='\n')
+        thCB = arctan2(B[1] - C[1], B[0] - C[0])
+        pI = arctan2(C[1], C[0])
+
+        return pO,pI
 
 
     def move_FK(self, ph1, ph2, n=None):
@@ -189,3 +216,26 @@ class WhegFourBar:
 
     def get_points(self):
         return np.vstack([self.A,self.B,self.C,self.D,self.P])
+
+    def calc_effective_radius(self,phase_diff):
+        # calculate effective radius assuming wheel will roll as a regular polygon
+        P = self.calc_FK(0.0,phase_diff)
+        rad = np.linalg.norm(P)
+        # perimeter of regular polygon
+        per = self.arcN * 2 * np.sin(np.pi/self.arcN) * rad
+        return per / (2*np.pi)
+
+    def get_effective_radius(self):
+        # calculate effective radius assuming wheel will roll as a regular polygon
+        # for the current configuration
+        rad = np.linalg.norm(self.P)
+        # perimeter of regular polygon
+        per = self.arcN * 2 * np.sin(np.pi / self.arcN) * rad
+        return per / (2 * np.pi)
+
+    def calc_phase_diff(self,eff_rad):
+        # essentially the inverse of the above, get a phase difference from a requested radius
+        p = self.calc_IK(eff_rad,0.0)
+        return p[1] - p[0]
+
+

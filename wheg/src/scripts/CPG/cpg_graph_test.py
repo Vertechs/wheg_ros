@@ -1,15 +1,20 @@
 import numpy as np
-
-import wheg_utils.central_pattern_generators as cpg
 import matplotlib.pyplot as plt
 
+import wheg_utils.generators.kuramoto_net
+import wheg_utils.generators.matsuoka_net
+import wheg_utils.generators.modified_hopf_net
+import wheg_utils.generators.van_der_pol_net
+
+from wheg_utils import robot_config
+robot = robot_config.get_config_A()
 
 ## Mastuoka oscillator setup
-gen1 = cpg.GeneratorMatsuokaNet(4)
+gen1 = wheg_utils.generators.matsuoka_net.GeneratorMatsuokaNet(4)
 
-gen1.time_constants[0, :] = 0.04
-gen1.time_constants[1, :] = 0.4
-gen1.set_input(0, 1.0)
+gen1.time_constants[0, :] = 0.4
+gen1.time_constants[1, :] = 4.0
+gen1.set_input(0, 4.0)
 
 gen1.w_own[:, :] = np.ones((2,4)) * 2.0
 gen1.w_mut[:, :] = np.ones((2,4)) * 2.5
@@ -22,7 +27,7 @@ gen1.set_state_all(np.array([[-0.54,0.38,0.21,-0.58],
 
 
 ## Kuramoto oscillator setup
-gen2 = cpg.GeneratorKuramoto(4)
+gen2 = wheg_utils.generators.kuramoto_net.GeneratorKuramoto(4,robot)
 
 gen2.random_state = np.random.RandomState(23)
 
@@ -30,20 +35,19 @@ gen2.gain_amp = 2.0
 
 gen2.target_amps = np.array([0.5, 0.5, 0.5, 0.5])
 gen2.target_offs = np.zeros(4)
+gen2.own_freq[:] = 1.0
 
 gen2.weights = np.ones((4, 4)) - np.eye(4)
-gen2.biases = np.array([[0 ,2 ,1 ,3],
-                        [-2,0 ,-1,1],
-                        [-1,1 ,0 ,2],
-                        [-1,-1,-2,0]]) * (np.pi/2)
+gen2.biases = gen2.b_q_off
 
 gen2.perturbation(0,[.1, .1, .1])
+gen2.diff_input(10.0, 0.0, gen2.wheel_rad)
 
 
 ## Modified hopf oscillators
-gen3 = cpg.GeneratorHopfMod(4)
+gen3 = wheg_utils.generators.modified_hopf_net.GeneratorHopfMod(4,robot)
 
-gen3.freq = np.ones((1,gen3.N)) * 5
+gen3.freq_const = np.ones((1,gen3.N))
 gen3.weights_converge = np.vstack([np.ones((1,4))*5,np.ones((1,4))*50])
 gen3.amplitudes = np.ones((1,gen3.N))
 
@@ -57,31 +61,18 @@ for i in range(4):
 
 
 ## Van der pol coupled oscillators
-gen4 = cpg.GeneratorVdpNet(4)
+gen4 = wheg_utils.generators.van_der_pol_net.GeneratorVdpNet(4)
 
-A = np.array([1.5,2.0,20.0])[np.newaxis]
+A = np.array([1.5,2.0,2.0])[np.newaxis]
 gen4.para = np.tile(A.T,gen4.N)
 
-gen3.weights = np.array([[0,-1,1,-1],
+gen4.weights = np.array([[0,-1,1,-1],
                        [-1,0,-1,1],
                        [-1,1,0,-1],
                        [1,-1,-1,0]]) * 0.2
 
 for i in range(4):
     gen4.set_state(i,0.1*i,0.2*i)
-
-
-## Matsuoka non-coupled oscillators
-gen5 = cpg.GeneratorMatsuokaSingle(1)
-
-gen5.time_constants[0, 0] = 0.04
-gen5.time_constants[1, 0] = 0.4
-
-gen5.set_input(0, 1.0)
-gen5.set_state(0, [0.011, 0.0022, 0.0081, 0.0057])
-
-gen5.weights_own[:, 0] = np.ones(2) * 2.0
-gen5.weights_mut[:, 0] = np.ones(2) * 2.5
 
 
 ## Generating and graphing CPG outputs
@@ -102,6 +93,9 @@ ax3 = fig.add_subplot(223)
 ax4 = fig.add_subplot(224)
 plt.ion()
 
+px = np.zeros(max_iter)
+py = np.zeros(max_iter)
+
 for t in range(max_iter):
     gen1.euler_update(t_step)
     gen2.euler_update(t_step)
@@ -109,12 +103,15 @@ for t in range(max_iter):
     gen4.euler_update(t_step)
 
     y1[t,:] = gen1.wheel_output()
-    y2[t,:] = gen2.graph_output()
-    y3[t,:] = gen3.graph_output()
+    y2[t,:] = gen2.wheel_output()[1]
+    y3[t,:] = gen3.phase_output()
     y4[t,:] = gen4.graph_output()
 
+    px[t] = gen3.state[0,0]
+    py[t] = gen3.state[1,0]
+
     if t == int(20/t_step):
-        gen1.command_input()
+        gen2.diff_input(10.0,0.0,gen2.wheel_rad*1.5)
 
 
 
@@ -130,7 +127,7 @@ ax3.plot(x,y3)
 ax3.legend(['a','b','c','d'])
 ax3.set_title("mod hopf")
 
-ax4.plot(x,y4)
+ax4.plot(px,py)
 ax4.legend(['a','b','c','d'])
 ax4.set_title("van der pol")
 
