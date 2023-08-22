@@ -231,7 +231,7 @@ class ControllerSwitch:
             ax.encoder.set_linear_count(0)
             ax.controller.config.control_mode = onum.ControlMode.POSITION_CONTROL
             ax.controller.config.input_mode = onum.InputMode.POS_FILTER
-            ax.controller.config.input_filter_bandwidth = 2 # TODO from parameters
+            ax.controller.config.input_filter_bandwidth = 10 # TODO from parameters
             
             # set new odrive internal controller gains
             ax.controller.config.vel_gain = 0.04

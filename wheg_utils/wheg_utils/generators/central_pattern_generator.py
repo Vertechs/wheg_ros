@@ -24,7 +24,7 @@ class CPG:
         """
         raise NotImplementedError
 
-    def reset_oscillators(self,n):
+    def reset_oscillators(self):
         """
         Reset the states of oscillators in the network
         :param n: list of oscillators to reset, n=-1 to reset all

@@ -132,11 +132,15 @@ class GeneratorKuramoto(CPG):
         self.rot_out = self.phi / self.n_arc
         return self.rot_out.tolist(),self.ext_out.tolist()
 
-    def wheel_input(self):
-        #TODO set internal state from motor state and filter 
+    def wheel_input(self,rot,ext):
+        # adjust internal states based on estimated position and last commanded position
+        self.phi[:] = rot
+        # only change the offset state; leaving amplitude as a completely internal state
+        self.off[:] = ext - self.ext_out
         pass
 
     def oscillator_input(self,v : np.ndarray,e : np.ndarray, cross_weight):
+        # set oscillator frequency and offset directly
         for i in range(self.N):
             self.own_freq[i] = v[i] * self.n_arc
             self.target_amps[i] = 1+ e[i]

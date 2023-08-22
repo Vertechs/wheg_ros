@@ -48,7 +48,10 @@ class PController(can.Listener):
         
         # feed forward terms
         self.vel_ff = [0]*self.n_ax
-        self.trq_ff = [0]*self.n_ax # feed forward must be int, taken as x*10^-3 in odrive 
+        self.trq_ff = [0]*self.n_ax # feed forward must be int, taken as x*10^-3 in odrive
+
+        # intermediate terms used in control math
+        self.e,self.p,self.h1,self.h2 = 0.0,0.0,0.0,0.0
         
         #===CAN setup===#
         
@@ -70,6 +73,7 @@ class PController(can.Listener):
         # init subscribers
         self.switch_subscriber = rospy.Subscriber("switch_mode", UInt8MultiArray, self.switch_callback)
         self.pos_command_subscriber = rospy.Subscriber("walk_pos_cmd", Float32MultiArray, self.target_callback)
+        self.pos_estimate_publisher = rospy.Publisher("walk_pos_est", Float32MultiArray, queue_size=2)
         
         #===Wheg setup===#
         # initialize wheg objects for each wheel module
@@ -122,7 +126,8 @@ class PController(can.Listener):
         while not rospy.is_shutdown():
             if self.enabled:
                 # t1 = time.monotonic_ns()
-                
+
+                self.send_estimates()
                 self.control_math()
                 self.send_commands()
                 
@@ -155,6 +160,18 @@ class PController(can.Listener):
         for msg in self.pos_msg:
             self.bus.send(msg)
 
+    def send_estimates(self):
+        # inverse control math to get wheel phases and extensions
+        for i in range(self.n_whl):
+            self.h1 = self.phi_hat[2*i] / (self.outer_ratio[i]*CIRC)
+            self.h2 = self.phi_hat[2*i+1] / (self.inner_ratio[i]*CIRC)
+            self.p = (self.h1 + self.h2) * 0.5
+            self.e = (self.h2 - self.h1) * 0.5
+            self.ext_hat = self.e * 2 * self.ext_dir[i] / self.ext_ratio[i]
+            self.rot_hat = self.p * self.rot_dir[i]
+
+
+
 
 if __name__=='__main__':
     
@@ -169,5 +186,5 @@ if __name__=='__main__':
         controller.controller_loop() # loop will block untill node shutdown
     # always close bus regardless of exception
     except rospy.ROSInterruptException:
-        print("closing can bus" + bus.channel_info)
+        print("closing can bus" + bus_pos_filter.channel_info)
         bus_pos_filter.shutdown()

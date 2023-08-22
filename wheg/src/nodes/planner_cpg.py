@@ -44,12 +44,15 @@ class Generator:
         
         self.mode_sub = rospy.Subscriber("switch_mode", ros_msg.UInt8MultiArray, self.mode_callback)
         self.vector_sub = rospy.Subscriber("planner_vector", ros_msg.Float32MultiArray, self.vector_callback)
+        self.estimate_sub = rospy.Subscriber("walk_pos_est", ros_msg.Float32MultiArray, self.estimate_callback)
         
         self.target_pub = rospy.Publisher("walk_pos_cmd", ros_msg.Float32MultiArray, queue_size = 2)
         
         self.target_message = ros_msg.Float32MultiArray(data = [0.0]*n_whl*2)
         self.ext_tar = [0.0]*n_whl
         self.rot_tar = [0.0]*n_whl
+        self.rot_hat = [0.0]*n_whl
+        self.ext_hat = [0.0]*n_whl
 
         # NOT USED, handled in generator object
         # # wheel circumfrances, saved as list in case they are different
@@ -77,6 +80,10 @@ class Generator:
         v,w,h,ax,ay = msg.data # x+ vel, z angular vel, ride height and angle
         # call pseudo-differential drive controller in CPG
         self.cpg.diff_input(v,w,h)
+
+    def estimate_callback(self,msg):
+        self.rot_hat[:] - msg.data[0:4]
+        self.ext_hat[:] - msg.data[0:4]
         
         
     def generator_loop(self):
@@ -86,6 +93,9 @@ class Generator:
         while not rospy.is_shutdown():
             t1 = time.monotonic_ns()
             if self.enabled:
+                # update oscillator states from estimates
+                #self.cpg.wheel_input(self.rot_hat,self.ext_hat)
+
                 self.cpg.euler_update(t_step)
                 self.rot_tar,self.ext_tar = self.cpg.wheel_output()
                 self.target_message.data = self.rot_tar + self.ext_tar
