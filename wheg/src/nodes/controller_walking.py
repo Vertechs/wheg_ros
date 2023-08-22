@@ -15,12 +15,11 @@ robot = robot_config.get_config_A()
 # using some IK math to determine actual motor position from target 
 # extension and phase, and torque feedforward term based on quasi-statics
 
-AXIS_STATE_IDLE = bytearray([1,0,0,0,0,0,0,0])
-AXIS_STATE_CLOSED = bytearray([8,0,0,0,0,0,0,0])
-CI_VEL_MODE = bytearray([2,0,0,0,1,0,0,0])
-
 # populate axis IDs, 10 to 18 by default
 AXIS_ID_LIST = [a for a in range(0xA,0x12)]
+
+# convert from radians to rotations for odrive controller
+CIRC = (0.5/np.pi)
 
 class PController(can.Listener):
     def __init__(self,axIDs,pos_filtered_bus):
@@ -66,7 +65,7 @@ class PController(can.Listener):
         rospy.init_node("walk_controller")
         # pos sending rate. set point is filtered in odrive, make sure bandwidth in
         # controller_switch is ~0.5x the sending rate
-        self.clock = rospy.Rate(10)
+        self.clock = rospy.Rate(50)
         
         # init subscribers
         self.switch_subscriber = rospy.Subscriber("switch_mode", UInt8MultiArray, self.switch_callback)
@@ -77,22 +76,16 @@ class PController(can.Listener):
         self.whegs = []
         for i in range(self.n_whl):
             self.whegs.append(WhegFourBar(robot.modules[i].four_bar.get_parameter_list()))
-            
-        # calculate extension phase difference including wheel internal gearing
-        # convert to turn from radians
-        self.ext_multiplier = []
-        for i in range(self.n_whl):
-            mod = robot.modules[i]
-            ratio = mod.ext_phase_diff * mod.whl_ratio * (0.5/np.pi)
-            self.ext_multiplier.append(ratio)
+        
+        # directions depending on motor location and wheel orientation #TODO move to config
+        self.ext_dir = [1,1,1,-1] # extension direction for each wheel s.t. expanding is +
+        self.rot_dir = [-1,1,-1,1]  # rotation direction for each wheel s.t. forward is +
             
         # load gear ratios for drive
         self.inner_ratio = [mod.inner_ratio for mod in robot.modules]
         self.outer_ratio = [mod.outer_ratio for mod in robot.modules]
-        
-        # direction for deployment 
-        # (+1 for +ext ~= outer - inner | -1 for +ext ~= -outer + inner)
-        self.whl_dir = [1,-1,-1,1]
+        self.ext_ratio = [mod.whl_ratio for mod in robot.modules]
+        print(self.ext_ratio)
         
         rospy.loginfo("Walking controller launched")
     
@@ -144,12 +137,11 @@ class PController(can.Listener):
         
     def control_math(self):
         for i in range(self.n_whl):
-            # calculate difference in hub phase needed
-            self.e = self.ext_tar[i] * self.ext_multiplier[i] * 0.5 * self.whl_dir[i]
-            
-            # calculate target phase for each *motor* using IK or linear approx
-            self.phi_tar[2*i] = self.outer_ratio[i] * (self.rot_tar[i] + self.e)
-            self.phi_tar[2*i+1] = self.inner_ratio[i] * (self.rot_tar[i] - self.e)
+            # calculate motor phases from gearing ratios
+            self.e = (self.ext_tar[i] * self.ext_ratio[i]) * self.ext_dir[i] * 0.5
+            self.p = self.rot_tar[i] * self.rot_dir[i]
+            self.phi_tar[2*i] = self.outer_ratio[i] * (self.p - self.e) * CIRC
+            self.phi_tar[2*i+1] = self.inner_ratio[i] * (self.p + self.e) * CIRC
             
             #self.trq_ff[2*i:2*i+1] = self.wheg.IK_f(self.phi_hat[..]) #TODO get from IK wheg object
         

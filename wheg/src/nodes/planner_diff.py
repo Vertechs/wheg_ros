@@ -12,7 +12,7 @@ from wheg_utils import robot_config
 robot = robot_config.get_config_A()
 
 # wheel biases for differential drive and ride height calcs
-WHEEL_DIR = [1,-1,1,-1]
+WHEEL_DIR = [-1,1,-1,1] # directions handled backwards in walking controller
 WHEEL_BIAS_X = [1,-1,1,-1]
 WHEEL_BIAS_Y = [-1, -1, 1, 1]
 
@@ -57,6 +57,7 @@ class Generator:
             if self.enabled:
                 rospy.loginfo("Disabled, reset to zero")
                 self.rot_tar = [0.0]*self.n_whl
+                self.wheel_vel = [0.0]*self.n_whl
                 self.enabled = False
         elif msg.data[0] == 2:
             if not self.enabled:
@@ -68,7 +69,9 @@ class Generator:
         
         # differential drive math to set wheel velocities
         for i in range(self.n_whl):
-            self.wheel_vel[i] = (WHEEL_DIR[i]*v + w*self.wheel_dist) / self.wheel_rad[i]
+            # direction applied to angular vel instead of linear vel
+            # controller expects +rotation to mean +x in robots frame
+            self.wheel_vel[i] = (v + WHEEL_DIR[i]*w*self.wheel_dist/self.wheel_rad[i]) / self.wheel_rad[i]
             
             if self.wheel_vel[i] > MAX_VEL:
                 self.wheel_vel[i] = MAX_VEL
@@ -77,8 +80,8 @@ class Generator:
                 self.wheel_vel[i] = -MAX_VEL
                 rospy.logwarn("Too high -speed commanded for wheel %d, falling back to %.2f"%(i,-MAX_VEL))
         
-            # set extension directly
-            self.ext_tar[i] = h/self.wheel_ext_height[i] #TODO add angle
+            # set extension directly in radians
+            self.ext_tar[i] = h #TODO add angle
             
             if self.ext_tar[i] > 1.0:
                 self.ext_tar[i] = 1.0
@@ -93,8 +96,8 @@ class Generator:
         self.iter_counter = 0
 
         while not rospy.is_shutdown():
-            self.t1 = self.t0
-            self.t0 = time.monotonic_ns()
+            self.t0 = self.t1
+            self.t1 = time.monotonic_ns()
             t_step = (self.t1-self.t0)*10e-9
             
             if self.enabled:

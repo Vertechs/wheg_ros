@@ -183,4 +183,5 @@ def get_config_A():
     for mod in robcfg.modules:
         mod.four_bar.set_parameter_list(para)
         mod.ext_phase_diff = np.deg2rad(63.7)
+        mod.radius = mod.four_bar.outHubRadius
     return robcfg

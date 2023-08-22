@@ -68,6 +68,7 @@ class GeneratorKuramoto(CPG):
         self.wheel_rad = robot.modules[0].radius
         self.wheel_dir = np.array([-1,1,-1,1]) # oscillator phases move positive, output must be flipped for left wheels
         self.height = 0.0
+        self.rot_out_offset = self.n_arc
 
     def euler_update(self, time_step):
         # eulers method, y(t+1) = y(t) + T*h(t,y)
@@ -104,7 +105,7 @@ class GeneratorKuramoto(CPG):
             self.d_off[i] += T * ddeloff
             self.off[i] += T * self.d_off[i]
 
-    def reset_oscillator(self):
+    def reset_oscillators(self):
         self.phi = np.zeros(self.N)
         self.amp = self.target_amps
         self.off = self.target_offs
@@ -127,10 +128,15 @@ class GeneratorKuramoto(CPG):
         return theta
 
     def wheel_output(self):
-        values = self.amp * np.sin(self.phi) * self.amp_norm + self.off
-        return self.phi, values
+        self.ext_out = self.amp * np.sin(self.phi) * self.amp_norm + self.off
+        self.rot_out = self.phi / self.n_arc
+        return self.rot_out.tolist(),self.ext_out.tolist()
 
-    def command_input(self,v : np.ndarray,e : np.ndarray, cross_weight):
+    def wheel_input(self):
+        #TODO set internal state from motor state and filter 
+        pass
+
+    def oscillator_input(self,v : np.ndarray,e : np.ndarray, cross_weight):
         for i in range(self.N):
             self.own_freq[i] = v[i] * self.n_arc
             self.target_amps[i] = 1+ e[i]
@@ -149,7 +155,8 @@ class GeneratorKuramoto(CPG):
         # *** this assumes wheels are all the same to lower computation time ***
         if h != self.height:
             self.height = h
-            p = self.wheels[0].calc_phase_diff(h)
+            # phase difference sent to control is relative to completely closed position
+            p = self.wheels[0].calc_phase_diff(h) - self.wheels[0].p_closed
             self.target_amp_norm = 0.2 * p #TODO get this from IK
             self.target_offs[:] = p * (1 - 0.5 * self.amp_norm)
 

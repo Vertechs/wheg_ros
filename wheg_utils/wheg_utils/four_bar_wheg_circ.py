@@ -57,10 +57,14 @@ class WhegFourBar:
         self.thCB = 0.0 # angle of the C->B vector
 
         # calculate phase difference for extension
+        # closed phase difference also used to offset the results from the CPG
+        # for easier calibration, the controller assumes 0.0 phase offset is 
+        # the completely closed position
         p0, p1 = self.calc_IK(self.outHubRadius, 0.0)
         self.p_closed = p1 - p0
         p0, p1 = self.calc_IK(self.outHubRadius + self.arcLength, 0.0)
         self.p_open = p1 - p0
+
 
     def __str__(self):
         return self.name + " ph1=%.4f ph2=%.4f" % (self.pI, self.pO)

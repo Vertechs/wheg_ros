@@ -51,11 +51,11 @@ class PlannerPassthrough:
                     print("--invalid pos command--")
                     continue
                 
-                if len(diff) != 5:
-                    print("--pos needs 5 values--")
+                if len(diff) != 3:
+                    print("--diff needs 3 values--")
                     continue
                 else:
-                    self.diff.data = diff
+                    self.diff.data = diff + [0,0]
                     self.diff_pub.publish(self.diff)
                 
             else:
