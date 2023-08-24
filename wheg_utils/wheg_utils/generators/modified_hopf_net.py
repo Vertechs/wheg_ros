@@ -1,4 +1,5 @@
 import numpy as np
+from numpy import sin,cos,pi,arctan2
 
 from wheg_utils.generators.central_pattern_generator import CPG
 from wheg_utils.four_bar_wheg_circ import WhegFourBar
@@ -15,6 +16,13 @@ class GeneratorHopfMod(CPG):
         self.weights_converge = np.ones((2,self.N))
         self.amplitude = np.ones((1,self.N))
         self.weights_inter = np.ones((self.N,self.N))
+        self.bias_inter = np.zeros(self.N,self.N)
+        
+        self.R_cw = np.round(R_matrix(np.pi/2),2)
+        self.R_ccw = np.round(R_matrix(-np.pi/2),2)
+        self.R_180 = np.round(R_matrix(np.pi),2)
+        self.R = self.R_matrix(0) # intermediate term for update math
+        self.inter_sum = np.zeros(2)
 
         #==Dynamic Variables==#
         self.state = np.zeros((2,self.N))
@@ -22,8 +30,8 @@ class GeneratorHopfMod(CPG):
         self.dstate = np.zeros((2,self.N))
         self.radius = np.zeros((1,self.N))
 
-        # input applied only to the second state variable (y)
-        self.input = 0.0
+        # feedback term applied to both state variables
+        self.feedback = np.zeros(2)
 
         # pseudo-differential drive parameters
         # need wheg objects for each oscillator to get basic parameters and do some inverse kinematics
@@ -37,6 +45,8 @@ class GeneratorHopfMod(CPG):
         self.wheel_dir = np.array([-1,1,-1,1]) # oscillator phases move positive, output must be flipped for left wheels
         self.height = 0.0
 
+    def R_matrix(self,theta):
+        return  np.array([[cos(theta),-sin(theta)],[sin(theta),cos(theta)]])
 
     def euler_update(self, t_step):
         for i in range(self.N):
@@ -45,16 +55,17 @@ class GeneratorHopfMod(CPG):
             self.radius[0,i] = np.linalg.norm(self.state[:,i])
 
             # coupling term is applied only on the second state variable (y)
-            inter_sum = 0
+            self.inter_sum = 0
             for j in range(self.N):
-                inter_sum += self.weights_inter[i,j] * self.state[1,j]
+                self.R
+                self.inter_sum += self.weights_inter[i,j] * np.matmul(self.R_matrix(self.bias_inter[i,j]),self.state[:,j])
 
             # dx/dt = a*(u-r^2)*x - w*y
             self.dstate[0,i] = (self.weights_converge[0,i] * (self.amplitude[0,i] - self.radius[0,i]**2) * self.state[0,i]
-                                - self.freq[0,i] * self.state[1,i])
+                                - self.freq[0,i] * self.state[1,i] + self.inter_sum[0] + self.feedback[0])
             # dy/dt = a*(u-r^2)*y - w*x
             self.dstate[1, i] = (self.weights_converge[1,i] * (self.amplitude[0,i] - self.radius[0, i] ** 2) * self.state[1, i]
-                                 + self.freq[0,i] * self.state[0, i] + inter_sum + self.input)
+                                 + self.freq[0,i] * self.state[0, i] + self.inter_sum[1] + self.feedback[1])
 
         # apply derivatives by euler method
         self.state += self.dstate * t_step

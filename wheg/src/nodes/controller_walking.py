@@ -23,11 +23,13 @@ CIRC = (0.5/np.pi)
 
 class PController(can.Listener):
     def __init__(self,axIDs,pos_filtered_bus):
-        #====Variable Setup====#
+        # == CAN setup == #
+        super().__init__()
         self.bus = pos_filtered_bus
         # self.canDB = canDB
         self.axIDs = axIDs
         
+        #====Variable Setup====#
         # get the nubmer of axes and the lowest ID, assuming all IDs are grouped
         self.n_ax = len(axIDs)
         self.n_whl = self.n_ax//2
@@ -82,14 +84,13 @@ class PController(can.Listener):
             self.whegs.append(WhegFourBar(robot.modules[i].four_bar.get_parameter_list()))
         
         # directions depending on motor location and wheel orientation #TODO move to config
-        self.ext_dir = [1,1,1,-1] # extension direction for each wheel s.t. expanding is +
+        self.ext_dir = [-1,-1,1,-1] # extension direction for each wheel s.t. expanding is +
         self.rot_dir = [-1,1,-1,1]  # rotation direction for each wheel s.t. forward is +
             
         # load gear ratios for drive
         self.inner_ratio = [mod.inner_ratio for mod in robot.modules]
         self.outer_ratio = [mod.outer_ratio for mod in robot.modules]
         self.ext_ratio = [mod.whl_ratio for mod in robot.modules]
-        print(self.ext_ratio)
         
         rospy.loginfo("Walking controller launched")
     
@@ -127,8 +128,9 @@ class PController(can.Listener):
             if self.enabled:
                 # t1 = time.monotonic_ns()
 
-                self.send_estimates()
+                #self.send_estimates()
                 self.control_math()
+                self.speed_check()
                 self.send_commands()
                 
                 # t2 = time.monotonic_ns()
@@ -139,6 +141,13 @@ class PController(can.Listener):
         # exit cleanup, shutdown CAN bus
         rospy.loginfo("shutting down")
         self.bus.shutdown()
+        
+    def speed_check(self):*
+        print(self.phi_hat)
+        for i in range(self.n_whl):
+            if self.phi_tar[i] - self.phi_hat[i] > 0.1:
+                print("command too high")
+                quit()
         
     def control_math(self):
         for i in range(self.n_whl):
@@ -181,6 +190,11 @@ if __name__=='__main__':
     
     # initialize the controller
     controller = PController(AXIS_ID_LIST, bus_pos_filter)
+    
+    # == CAN SETUP == #
+    # bus.recv() method appears to have an internal buffer that cannot be cleared or ignored
+    # To read current frames being sent, need to register a listener object with a Notifier
+    can.Notifier(bus_pos_filter,[controller])
     
     try:
         controller.controller_loop() # loop will block untill node shutdown

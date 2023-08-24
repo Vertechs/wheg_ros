@@ -155,13 +155,13 @@ def get_config_A():
     
     robcfg.modules[0].outer_stages = [(60,20),(60,20)]
     robcfg.modules[0].inner_stages = [(60,20),(60,20)]
-    robcfg.modules[0].wheel_stages = [(1,1)]
+    robcfg.modules[0].wheel_stages = [(24+82,24)]
     robcfg.modules[0].set_ratios()
     robcfg.modules[0].n_arc = 5
     
     robcfg.modules[1].outer_stages = [(40,14),(40,20)]
     robcfg.modules[1].inner_stages = [(40,14),(40,20)]
-    robcfg.modules[1].wheel_stages = [(1,1)]
+    robcfg.modules[1].wheel_stages = [(24+82,24)]
     robcfg.modules[1].set_ratios()
     robcfg.modules[1].n_arc = 5
     

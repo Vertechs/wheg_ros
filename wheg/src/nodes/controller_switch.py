@@ -236,7 +236,7 @@ class ControllerSwitch:
             # set new odrive internal controller gains
             ax.controller.config.vel_gain = 0.04
             ax.controller.config.pos_gain = 120 
-            ax.controller.config.vel_integrator_gain = 0.0
+            ax.controller.config.vel_integrator_gain = 0.01
             ax.controller.config.vel_integrator_limit = 100.0
             
             

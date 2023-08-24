@@ -27,6 +27,8 @@ class PlannerPassthrough:
             msg = input("Enter controller mode or command: ")
             if msg == 'q':
                 quit()
+            elif len(msg) < 1:
+                print("--invalid mode--")
             elif msg in CONTROL_MODES:
                 self.mode_pub.publish(msg)
             elif msg[0] == 'p':

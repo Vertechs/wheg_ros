@@ -86,6 +86,7 @@ class PController(can.Listener):
         # frames should always be in some order so a buffer of n frames will have
         # n different encoder messages, though the exact order will be unknown
         # takes ~50us to run this
+        print(msg)
         self.rx_id[self.buffer_ind] = msg.arbitration_id
         self.rx_bytes[self.buffer_ind] = msg.data[0:4]
         if self.buffer_ind >= self.n_ax-1:
