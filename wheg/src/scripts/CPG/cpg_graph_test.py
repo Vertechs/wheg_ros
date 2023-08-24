@@ -47,14 +47,16 @@ gen2.diff_input(10.0, 0.0, gen2.wheel_rad)
 ## Modified hopf oscillators
 gen3 = wheg_utils.generators.modified_hopf_net.GeneratorHopfMod(4,robot)
 
-gen3.freq_const = np.ones((1,gen3.N))
+gen3.freq_const = np.ones(gen3.N)
 gen3.weights_converge = np.vstack([np.ones((1,4))*5,np.ones((1,4))*50])
-gen3.amplitudes = np.ones((1,gen3.N))
+gen3.amplitudes = np.ones(gen3.N)
 
-gen3.weights_inter = np.array([[0,-1,1,-1],
-                               [-1,0,-1,1],
-                               [-1,1,0,-1],
-                               [1,-1,-1,0]])
+# gen3.weights_inter = np.array([[0,-1,1,-1],
+#                                [-1,0,-1,1],
+#                                [-1,1,0,-1],
+#                                [1,-1,-1,0]])
+gen3.weights_inter = (np.ones((gen3.N,gen3.N)) - np.eye(gen3.N))*0.1
+gen3.bias_inter = gen3.b_q_off
 
 for i in range(4):
     gen3.set_state(i,[0.25*i,0.2*i])
@@ -77,7 +79,7 @@ for i in range(4):
 
 ## Generating and graphing CPG outputs
 t_max = 40
-t_step = 0.01
+t_step = 0.02
 max_iter = int(t_max/t_step)
 
 y1 = np.zeros((max_iter,4))
@@ -93,8 +95,8 @@ ax3 = fig.add_subplot(223)
 ax4 = fig.add_subplot(224)
 plt.ion()
 
-px = np.zeros(max_iter)
-py = np.zeros(max_iter)
+px = np.zeros((max_iter,4))
+py = np.zeros((max_iter,4))
 
 for t in range(max_iter):
     gen1.euler_update(t_step)
@@ -102,13 +104,13 @@ for t in range(max_iter):
     gen3.euler_update(t_step)
     gen4.euler_update(t_step)
 
-    y1[t,:] = gen1.wheel_output()
-    y2[t,:] = gen2.wheel_output()[1]
-    y3[t,:] = gen3.phase_output()
-    y4[t,:] = gen4.graph_output()
+    #y1[t,:] = gen1.wheel_output()
+    #y2[t,:] = gen2.wheel_output()[1]
+    y3[t,:] = gen3.graph_output()
+    #y4[t,:] = gen4.graph_output()
 
-    px[t] = gen3.state[0,0]
-    py[t] = gen3.state[1,0]
+    px[t] = gen3.state[0,:]
+    py[t] = gen3.state[1,:]
 
     if t == int(20/t_step):
         gen2.diff_input(10.0,0.0,gen2.wheel_rad*1.5)
@@ -129,7 +131,7 @@ ax3.set_title("mod hopf")
 
 ax4.plot(px,py)
 ax4.legend(['a','b','c','d'])
-ax4.set_title("van der pol")
+ax4.set_title("hopf xy")
 
 plt.show(block=True)
 

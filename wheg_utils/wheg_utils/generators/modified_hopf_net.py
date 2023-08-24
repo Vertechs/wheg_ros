@@ -12,23 +12,24 @@ class GeneratorHopfMod(CPG):
     def __init__(self, num_oscillators : int, robot : RobotDefinition):
         #==Constant Parameters==#
         self.N = num_oscillators
-        self.freq_const = np.zeros((1,self.N))
+        self.freq_const = np.zeros(self.N)
         self.weights_converge = np.ones((2,self.N))
-        self.amplitude = np.ones((1,self.N))
+        self.amplitude = np.ones(self.N)
         self.weights_inter = np.ones((self.N,self.N))
-        self.bias_inter = np.zeros(self.N,self.N)
+        self.bias_inter = np.zeros((self.N,self.N))
         
-        self.R_cw = np.round(R_matrix(np.pi/2),2)
-        self.R_ccw = np.round(R_matrix(-np.pi/2),2)
-        self.R_180 = np.round(R_matrix(np.pi),2)
+        self.b_q_off = np.array([[0 ,1 ,2 ,3],
+                                 [-1,0 ,1, 1],
+                                 [-2,-1 ,0 ,1],
+                                 [-1,-2,-1,0]]) * (np.pi/2)
         self.R = self.R_matrix(0) # intermediate term for update math
         self.inter_sum = np.zeros(2)
 
         #==Dynamic Variables==#
         self.state = np.zeros((2,self.N))
-        self.freq = np.zeros((1,self.N))
+        self.freq = np.zeros(self.N)
         self.dstate = np.zeros((2,self.N))
-        self.radius = np.zeros((1,self.N))
+        self.radius = np.zeros(self.N)
 
         # feedback term applied to both state variables
         self.feedback = np.zeros(2)
@@ -52,20 +53,20 @@ class GeneratorHopfMod(CPG):
         for i in range(self.N):
             # TODO add frequency shaping math
             self.freq = self.freq_const * 1.0
-            self.radius[0,i] = np.linalg.norm(self.state[:,i])
+            self.radius[i] = self.state[0,i]**2 + self.state[1,i]**2
 
-            # coupling term is applied only on the second state variable (y)
-            self.inter_sum = 0
+            # coupling term applied based on relative phase offset
+            self.inter_sum = np.zeros(2)
             for j in range(self.N):
-                self.R
-                self.inter_sum += self.weights_inter[i,j] * np.matmul(self.R_matrix(self.bias_inter[i,j]),self.state[:,j])
+                self.R = self.R_matrix(self.bias_inter[i,j])
+                self.inter_sum += self.weights_inter[i,j] * np.matmul(self.R,self.state[:,j])
 
             # dx/dt = a*(u-r^2)*x - w*y
-            self.dstate[0,i] = (self.weights_converge[0,i] * (self.amplitude[0,i] - self.radius[0,i]**2) * self.state[0,i]
-                                - self.freq[0,i] * self.state[1,i] + self.inter_sum[0] + self.feedback[0])
+            self.dstate[0,i] = (self.weights_converge[0,i] * (self.amplitude[i] - self.radius[i]**2) * self.state[0,i]
+                                - self.freq[i] * self.state[1, i] + self.inter_sum[0] + self.feedback[0])
             # dy/dt = a*(u-r^2)*y - w*x
-            self.dstate[1, i] = (self.weights_converge[1,i] * (self.amplitude[0,i] - self.radius[0, i] ** 2) * self.state[1, i]
-                                 + self.freq[0,i] * self.state[0, i] + self.inter_sum[1] + self.feedback[1])
+            self.dstate[1, i] = (self.weights_converge[1,i] * (self.amplitude[i] - self.radius[i] ** 2) * self.state[1, i]
+                                + self.freq[i] * self.state[0, i] + self.inter_sum[1] + self.feedback[1])
 
         # apply derivatives by euler method
         self.state += self.dstate * t_step
@@ -73,12 +74,12 @@ class GeneratorHopfMod(CPG):
     def set_state(self, n, state):
         self.state[:, n] = state
 
-    def phase_output(self):
+    def wheel_output(self):
         # return limit circle radius and current phase
-        return np.arctan2(self.state[1,:],self.state[0,:])
+        return np.arctan2(self.state[1,:],self.state[0,:]),self.radius
 
     def graph_output(self):
-        return self.state[0,:]
+        return self.state[1,:]
 
     def diff_input(self,v,w,h):
         differential = (w * self.wheel_dist / self.wheel_rad)

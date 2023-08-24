@@ -40,6 +40,7 @@ class PController(can.Listener):
         
         # target position arrays, rotational and extension position targets
         self.phi_tar = [0.0]*self.n_ax
+        self.phi_tar_check = [0.0]*self.n_ax
         self.rot_tar = [0.0]*(self.n_whl)
         self.ext_tar = [0.0]*(self.n_whl)
         
@@ -142,15 +143,16 @@ class PController(can.Listener):
         rospy.loginfo("shutting down")
         self.bus.shutdown()
         
-    def speed_check(self):*
+    def speed_check(self):
         print(self.phi_hat)
         for i in range(self.n_whl):
-            if self.phi_tar[i] - self.phi_hat[i] > 0.1:
+            if self.phi_tar[i] - self.phi_tar_check[i] > 0.1:
                 print("command too high")
                 quit()
         
     def control_math(self):
         for i in range(self.n_whl):
+            self.phi_tar_check[:] = self.phi_tar
             # calculate motor phases from gearing ratios
             self.e = (self.ext_tar[i] * self.ext_ratio[i]) * self.ext_dir[i] * 0.5
             self.p = self.rot_tar[i] * self.rot_dir[i]
