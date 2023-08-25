@@ -15,12 +15,15 @@ class PlannerPassthrough:
         self.mode_pub = rospy.Publisher("planner_mode", ros_msg.String, queue_size = 2)
         self.pose_pub = rospy.Publisher("walk_pos_cmd", ros_msg.Float32MultiArray, queue_size = 2)
         self.diff_pub = rospy.Publisher("planner_vector", ros_msg.Float32MultiArray, queue_size = 2)
+        self.switch_pub = rospy.Publisher("switch_mode", ros_msg.UInt8MultiArray, queue_size = 2)
         
         self.pose = ros_msg.Float32MultiArray()
         self.pose.data = [0.0]*8
         
         self.diff = ros_msg.Float32MultiArray()
         self.diff.data = [0.0]*5
+        
+        self.ctrl_msg = ros_msg.UInt8MultiArray()
     
     def main_loop(self):
         while not rospy.is_shutdown():
@@ -59,6 +62,16 @@ class PlannerPassthrough:
                 else:
                     self.diff.data = diff + [0,0]
                     self.diff_pub.publish(self.diff)
+            elif msg[0] == 's':
+                msgs = msg.split()
+                if msgs[1] in CONTROL_MODES:
+                    mode = CONTROL_MODES.index(msgs[1])
+                    self.ctrl_msg.data = [mode,0]
+                    self.mode_pub.publish(msg)
+                    self.switch_pub.publish(self.ctrl_msg)
+                else:
+                    print("invalid switch mode")
+                
                 
             else:
                 print("--invalid mode--")

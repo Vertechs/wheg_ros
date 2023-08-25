@@ -13,6 +13,12 @@ run_pos_cmd = desired phase and extension of each wheel
 Float32MultiArray : [[theta,ext] * n_wheel]
 theta = phase of wheel, ext = extension amount [0->1]
 
+
+walk_pos_cmd = desired phase and extension of each wheel
+Float32MultiArray : [[theta,ext] * n_wheel]
+theta = phase of wheel in radians
+ext = extension amount **in radians of offset**
+
 path and task planner requested states
 planner_mode = requested robot state from path and task planning
 planner_vector = float array: fwd vel, rotate vel, ride height, ride angle x, ride angle y

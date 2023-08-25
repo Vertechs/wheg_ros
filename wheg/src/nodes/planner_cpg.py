@@ -10,7 +10,7 @@ from wheg_utils import robot_config
 
 robot = robot_config.get_config_A()
 
-CPG_RATE = 50
+CPG_RATE = 100
 
 # wheel biases for differential drive and ride height calcs
 WHEEL_DIR = [1,-1,1,-1]
@@ -40,7 +40,7 @@ class Generator:
         
         # #TODO balance cpg update rate with sending rate to controllers
         self.cpg_clock = rospy.Rate(CPG_RATE)
-        self.send_ratio = 2 # after how many internal updates to send pos command
+        self.send_ratio = 1 # after how many internal updates to send pos command
         
         self.mode_sub = rospy.Subscriber("switch_mode", ros_msg.UInt8MultiArray, self.mode_callback)
         self.vector_sub = rospy.Subscriber("planner_vector", ros_msg.Float32MultiArray, self.vector_callback)
@@ -91,21 +91,26 @@ class Generator:
         self.iter_counter = 0
         
         while not rospy.is_shutdown():
-            t1 = time.monotonic_ns()
+            t0 = time.monotonic_ns()
             if self.enabled:
                 # update oscillator states from estimates
                 #self.cpg.wheel_input(self.rot_hat,self.ext_hat)
-
+                
+                # step oscillators forward and take output
                 self.cpg.euler_update(t_step)
                 self.rot_tar,self.ext_tar = self.cpg.wheel_output()
                 self.target_message.data = self.rot_tar + self.ext_tar
-            
+                t1 = time.monotonic_ns()
+                
+                # send position commands
                 if self.iter_counter >= self.send_ratio:
                     self.iter_counter = 0
                     self.target_pub.publish(self.target_message)
-                    t2 = time.monotonic_ns()
-                    rospy.loginfo([round(a,2) for a in self.target_message.data])
-                #rospy.loginfo((t2-t1)//1000)
+                    
+                t2 = time.monotonic_ns()
+                
+                rospy.loginfo([(t1-t0)//1000,(t2-t1)//1000])
+                rospy.loginfo([round(a,2) for a in self.target_message.data])
             
             self.iter_counter += 1
             

@@ -193,11 +193,14 @@ class ControllerSwitch:
         # enable cyclic by default
         self.enable_can_cyclic()
             
-    # shutdown motor, idle all axes, encoders still tracking
+    # shutdown motor, idle all axes, reset encoders to 0 but still tracking
     def shutdown(self):
         rospy.loginfo("Disabling motors")
         for ax in self.axes:
             ax.requested_state = onum.AxisState.IDLE
+            
+        for ax in self.axes:
+            ax.encoder.set_linear_count(0)
 
         # publish disabled state to controller nodes
         self.mode = 0

@@ -25,7 +25,7 @@ class Generator:
         
         # #TODO balance cpg update rate with sending rate to controllers
         self.clock = rospy.Rate(100)
-        self.send_ratio = 10 # after how many internal updates to send pos command
+        self.send_ratio = 2 # after how many internal updates to send pos command
         
         rospy.Subscriber("switch_mode", ros_msg.UInt8MultiArray, self.mode_callback)
         rospy.Subscriber("planner_vector", ros_msg.Float32MultiArray, self.vector_callback)
@@ -39,6 +39,7 @@ class Generator:
         
         self.target_message = ros_msg.Float32MultiArray(data = [0.0]*n_whl*2)
         self.ext_tar = [0.0]*n_whl
+        self.ext_tar_set = [0.0]*n_whl
         self.rot_tar = [0.0]*n_whl
         
         self.wheel_vel = [0.0]*n_whl
@@ -46,7 +47,7 @@ class Generator:
         # wheel circumfrances, saved as list in case they are different
         self.wheel_rad = [mod.radius for mod in robot.modules]
         self.wheel_dist = robot.wheel_base_width
-        self.wheel_ext_height = [mod.ext_rad_ratio*mod.radius for mod in robot.modules]
+        self.wheel_ext_diff = [mod.ext_phase_diff for mod in robot.modules]
         
         rospy.loginfo("Diff drive passthrough launched")
 
@@ -58,6 +59,8 @@ class Generator:
                 rospy.loginfo("Disabled, reset to zero")
                 self.rot_tar = [0.0]*self.n_whl
                 self.wheel_vel = [0.0]*self.n_whl
+                self.ext_tar = [0.0]*self.n_whl
+                self.ext_tar_set = [0.0]*self.n_whl
                 self.enabled = False
         elif msg.data[0] == 2:
             if not self.enabled:
@@ -81,14 +84,22 @@ class Generator:
                 rospy.logwarn("Too high -speed commanded for wheel %d, falling back to %.2f"%(i,-MAX_VEL))
         
             # set extension directly in radians
-            self.ext_tar[i] = h #TODO add angle
+            # TODO fix this math, can get actual angle from IK
+            self.ext_tar_set[i] = ((h - self.wheel_rad[i]) / self.wheel_rad[i]) * self.wheel_ext_diff[i]
             
-            if self.ext_tar[i] > 1.0:
-                self.ext_tar[i] = 1.0
+            if self.ext_tar_set[i] > 1.0:
+                self.ext_tar_set[i] = 1.0
                 rospy.logwarn("Too high extension commanded for wheel %d, falling back to 1.0"%i)
-            elif self.ext_tar[i] < 0.0:
-                self.ext_tar[i] = 0.0
+            elif self.ext_tar_set[i] < 0.0:
+                self.ext_tar_set[i] = 0.0
                 rospy.logwarn("Too low extension commanded for wheel %d, falling back to 0.0"%i)
+                
+        # print commanded positions, occasionally will not reset with walking controller resulting in rapid movement
+        out_str = ['rot:'] + ['%.2f'%a for a in self.rot_tar]
+        out_str += ['ext:'] + ['%.2f'%a for a in self.ext_tar]
+        out_str += ['set:'] + ['%.2f'%a for a in self.ext_tar_set]
+        print(' '.join(out_str))
+        
         
     def generator_loop(self):
         self.t0 = time.monotonic_ns()
@@ -98,11 +109,13 @@ class Generator:
         while not rospy.is_shutdown():
             self.t0 = self.t1
             self.t1 = time.monotonic_ns()
-            t_step = (self.t1-self.t0)*10e-9
+            t_step = 0.1 #(self.t1-self.t0)*10e-9
+            #rospy.loginfo((self.t1-self.t0)*10e-9)
             
             if self.enabled:
                 for i in range(self.n_whl):
                     self.rot_tar[i] += self.wheel_vel[i]*t_step
+                    self.ext_tar[i] += (self.ext_tar_set[i] - self.ext_tar[i]) * 0.1 * t_step
                 
             self.target_message.data = self.rot_tar + self.ext_tar
             

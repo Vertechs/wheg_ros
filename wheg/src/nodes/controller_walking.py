@@ -71,7 +71,7 @@ class PController(can.Listener):
         rospy.init_node("walk_controller")
         # pos sending rate. set point is filtered in odrive, make sure bandwidth in
         # controller_switch is ~0.5x the sending rate
-        self.clock = rospy.Rate(50)
+        self.clock = rospy.Rate(100)
         
         # init subscribers
         self.switch_subscriber = rospy.Subscriber("switch_mode", UInt8MultiArray, self.switch_callback)
@@ -98,11 +98,11 @@ class PController(can.Listener):
     def on_message_received(self, msg: can.Message) -> None:
         # CAN message callback used with notifier thread
         # Only function required to be registered with canbus notifier
-        # Set internal pos estimates whenever estimate frame recieved
+        # Set internal pos estimates whenever estime frame recieved
         # takes ~100us to run; TODO may be too slow, can process outside of call
         for i in range(self.n_ax):
             if msg.arbitration_id == self.pos_arb_ids[i]:
-                self.phi_hat[i] = struct.unpack('f',msg.data[0:4])
+                self.phi_hat[i] = struct.unpack('f',msg.data[0:4])[0]
     
     def switch_callback(self, msg):
         # control mode is first int of status array
@@ -144,10 +144,11 @@ class PController(can.Listener):
         self.bus.shutdown()
         
     def speed_check(self):
-        print(self.phi_hat)
+        # failsafe to check that the commanded position is not too far
         for i in range(self.n_whl):
-            if self.phi_tar[i] - self.phi_tar_check[i] > 0.1:
-                print("command too high")
+            if abs(self.phi_tar[i] - self.phi_hat[i]) > 2.0:
+                rospy.logerr("command too high for %d:"%i)
+                rospy.logerr([self.phi_tar[i],self.phi_hat[i]])
                 quit()
         
     def control_math(self):
