@@ -40,7 +40,7 @@ gen2.own_freq[:] = 1.0
 gen2.weights = np.ones((4, 4)) - np.eye(4)
 gen2.biases = gen2.b_q_off
 
-gen2.perturbation(0,[.1, .1, .1])
+gen2.perturbation(0,[.01, .01, .01])
 gen2.diff_input(10.0, 0.0, gen2.wheel_rad)
 
 
@@ -48,7 +48,7 @@ gen2.diff_input(10.0, 0.0, gen2.wheel_rad)
 gen3 = wheg_utils.generators.modified_hopf_net.GeneratorHopfMod(4,robot)
 
 gen3.freq_const = np.ones(gen3.N)
-gen3.weights_converge = np.vstack([np.ones((1,4))*5,np.ones((1,4))*50])
+gen3.weights_converge = np.vstack([np.ones((1,4))*5,np.ones((1,4))*5])
 gen3.amplitudes = np.ones(gen3.N)
 
 # gen3.weights_inter = np.array([[0,-1,1,-1],
@@ -59,7 +59,9 @@ gen3.weights_inter = (np.ones((gen3.N,gen3.N)) - np.eye(gen3.N))*0.1
 gen3.bias_inter = gen3.b_q_off
 
 for i in range(4):
-    gen3.set_state(i,[0.25*i,0.2*i])
+    gen3.set_state(i,[0.2,0.01])
+
+gen3.diff_input(10.0,0.0,gen3.wheel_rad*1.5)
 
 
 ## Van der pol coupled oscillators
@@ -74,12 +76,12 @@ gen4.weights = np.array([[0,-1,1,-1],
                        [1,-1,-1,0]]) * 0.2
 
 for i in range(4):
-    gen4.set_state(i,0.1*i,0.2*i)
+    gen4.set_state(i,0.01,0.01)
 
 
 ## Generating and graphing CPG outputs
-t_max = 40
-t_step = 0.02
+t_max = 50
+t_step = 0.005
 max_iter = int(t_max/t_step)
 
 y1 = np.zeros((max_iter,4))
@@ -99,39 +101,53 @@ px = np.zeros((max_iter,4))
 py = np.zeros((max_iter,4))
 
 for t in range(max_iter):
-    gen1.euler_update(t_step)
+    #gen1.euler_update(t_step)
     gen2.euler_update(t_step)
     gen3.euler_update(t_step)
-    gen4.euler_update(t_step)
+    #gen4.euler_update(t_step)
 
-    #y1[t,:] = gen1.wheel_output()
-    #y2[t,:] = gen2.wheel_output()[1]
-    y3[t,:] = gen3.graph_output()
-    #y4[t,:] = gen4.graph_output()
+    y1[t,:] = gen2.wheel_output()[0]
+    y2[t,:] = gen2.wheel_output()[1]
+    y3[t, :] = gen3.wheel_output()[0]
+    y4[t, :] = gen3.wheel_output()[1]
 
     px[t] = gen3.state[0,:]
     py[t] = gen3.state[1,:]
 
-    if t == int(20/t_step):
+    if t == int(10/t_step):
         gen2.diff_input(10.0,0.0,gen2.wheel_rad*1.5)
+        gen3.diff_input(10.0,0.0,gen3.wheel_rad*1.5)
+
+    if t == int(20/t_step):
+        gen2.diff_input(5.0,0.1,gen2.wheel_rad*1.5)
+        gen3.diff_input(5.0,0.1,gen3.wheel_rad * 1.5)
+        print(gen3.amplitudes)
+
+    if t == int(32/t_step):
+        gen2.biases = gen2.b_q_off
+        gen2.diff_input(5.0,0.0,gen2.wheel_rad*1.5)
+        gen3.diff_input(5.0,0.0,gen3.wheel_rad*1.5)
 
 
 
 ax1.plot(x,y1)
 ax1.legend(['a','b','c','d'])
-ax1.set_title("mat mult")
+ax1.set_title("K Phs")
 
 ax2.plot(x,y2)
 ax2.legend(['a','b','c','d'])
-ax2.set_title("kura")
+ax2.set_title("K Ext")
 
 ax3.plot(x,y3)
 ax3.legend(['a','b','c','d'])
-ax3.set_title("mod hopf")
+ax3.set_title("H Phs")
 
-ax4.plot(px,py)
+ax4.plot(x,y4)
 ax4.legend(['a','b','c','d'])
-ax4.set_title("hopf xy")
+ax4.set_title("H Ext")
+
+plt.figure(2)
+plt.plot(px,py)
 
 plt.show(block=True)
 

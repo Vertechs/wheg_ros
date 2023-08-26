@@ -40,7 +40,7 @@ class GeneratorKuramoto(CPG):
 
         # amplitude of oscillators is always 1.0 to avoid changing weight influences
         # normalizing term calculated from IK is used when sending final phase differences to controller
-        self.amp_norm = 0.2
+        self.amp_norm = 0.0
 
         self.d_biases = np.zeros((n,n))
         self.d_weights = np.zeros((n,n))
@@ -98,7 +98,8 @@ class GeneratorKuramoto(CPG):
             self.d_amp[i] += T * ddelamp
             self.amp[i] += T * self.d_amp[i]
 
-            self.amp_norm += (self.target_amp_norm-self.amp_norm) * self.gain_amp
+            #print('anorm:',self.amp_norm)
+            self.amp_norm += (self.target_amp_norm-self.amp_norm) * self.gain_amp * T
             # OFF UPDATE // (delta^2_offsets / d^2t)
             inner = 0.25 * self.gain_off * (self.target_offs[i] - self.off[i])
             ddeloff = self.gain_off * (inner - self.d_off[i])
@@ -130,7 +131,7 @@ class GeneratorKuramoto(CPG):
     def wheel_output(self):
         self.ext_out = self.amp * np.sin(self.phi) * self.amp_norm + self.off
         self.rot_out = self.phi / self.n_arc
-        return self.rot_out.tolist(),self.ext_out.tolist()
+        return self.rot_out.tolist(),[max(0.0,s) for s in self.ext_out]
 
     def wheel_input(self,rot,ext):
         # adjust internal states based on estimated position and last commanded position
@@ -160,8 +161,9 @@ class GeneratorKuramoto(CPG):
         if h != self.height:
             self.height = h
             # phase difference sent to control is relative to completely closed position
-            p = self.wheels[0].calc_phase_diff(h) - self.wheels[0].p_closed
+            p = self.wheels[0].p_closed - self.wheels[0].calc_phase_diff(h)
             self.target_amp_norm = 0.2 * p #TODO get this from IK
+            #print(p)
             self.target_offs[:] = p * (1 - 0.5 * self.amp_norm)
 
 
