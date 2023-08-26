@@ -54,7 +54,7 @@ class ControllerSwitch:
         rospy.loginfo("Connecting to odrives...")
         for sn in self.sn_list:
             try:
-                drv = odrive.find_any(serial_number = sn, timeout=10)
+                drv = odrive.find_any(serial_number = sn, timeout=20)
                 rospy.loginfo("Found " + str(sn))
                 self.drives.append(drv)
                 self.axes.append(drv.axis0)
@@ -132,9 +132,9 @@ class ControllerSwitch:
     # depending on the controller in use
     def enable_can_cyclic(self):
         if self.mode == 2: # Walking controller requires slower input
-            enc_rate = 10
+            enc_rate = 20
         else:
-            enc_rate = 5
+            enc_rate = 10
         
         for axis in self.axes:
             axis.config.can.heartbeat_rate_ms = 1000
@@ -240,7 +240,7 @@ class ControllerSwitch:
             ax.controller.config.vel_gain = 0.04
             ax.controller.config.pos_gain = 120 
             ax.controller.config.vel_integrator_gain = 0.01
-            ax.controller.config.vel_integrator_limit = 100.0
+            ax.controller.config.vel_integrator_limit = 10.0
             
             
     def start_rolling(self):

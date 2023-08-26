@@ -71,7 +71,7 @@ class PController(can.Listener):
         rospy.init_node("walk_controller")
         # pos sending rate. set point is filtered in odrive, make sure bandwidth in
         # controller_switch is ~0.5x the sending rate
-        self.clock = rospy.Rate(100)
+        self.clock = rospy.Rate(50)
         
         # init subscribers
         self.switch_subscriber = rospy.Subscriber("switch_mode", UInt8MultiArray, self.switch_callback)

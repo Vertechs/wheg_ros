@@ -165,7 +165,9 @@ catkin_install_python(PROGRAMS
  src/nodes/controller_running.py
  src/nodes/controller_rolling.py
  src/nodes/controller_walking.py
- src/nodes/planner_cpg.py
+ src/nodes/planner_cpg_k.py
+ src/nodes/planner_cpg_v.py
+ src/nodes/planner_cpg_h.py
  src/nodes/planner_dummy.py
  src/nodes/planner_diff.py
  src/nodes/standalone_diffdrive.py

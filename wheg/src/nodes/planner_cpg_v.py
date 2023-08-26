@@ -41,7 +41,6 @@ class Generator:
         # #TODO balance cpg update rate with sending rate to controllers
         self.cpg_clock = rospy.Rate(CPG_RATE)
         self.send_ratio = 1 # after how many internal updates to send pos command
-        self.print_ratio = 100
         
         self.mode_sub = rospy.Subscriber("switch_mode", ros_msg.UInt8MultiArray, self.mode_callback)
         self.vector_sub = rospy.Subscriber("planner_vector", ros_msg.Float32MultiArray, self.vector_callback)
@@ -88,7 +87,7 @@ class Generator:
         
         
     def generator_loop(self):
-        t_step = 1.0/CPG_RATE
+        t_step = 1.0/CPG_RATE # TODO get this from actual time
         self.iter_counter = 0
         
         while not rospy.is_shutdown():
@@ -104,15 +103,14 @@ class Generator:
                 t1 = time.monotonic_ns()
                 
                 # send position commands
-                if self.iter_counter % self.send_ratio == 0:
+                if self.iter_counter >= self.send_ratio:
+                    self.iter_counter = 0
                     self.target_pub.publish(self.target_message)
                     
                 t2 = time.monotonic_ns()
                 
-                # print loop time and current commands
-                if self.iter_counter % self.print_ratio == 0:
-                    rospy.loginfo([(t1-t0)//1000,(t2-t1)//1000]
-                                    + [round(a,2) for a in self.target_message.data])
+                rospy.loginfo([(t1-t0)//1000,(t2-t1)//1000])
+                rospy.loginfo([round(a,2) for a in self.target_message.data])
             
             self.iter_counter += 1
             
