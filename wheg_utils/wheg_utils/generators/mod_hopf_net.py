@@ -172,7 +172,7 @@ class GeneratorHopf(CPG):
     def __init__(self, num_oscillators : int, robot : RobotDefinition):
         #==Constant Parameters==#
         self.N = num_oscillators
-        self.freq_const = np.zeros(self.N)
+        self.freq_tar = np.zeros(self.N)
         self.weights_converge = np.ones((2,self.N))
         self.amplitudes = np.ones(self.N)
         self.weights_inter = np.ones((self.N,self.N))
@@ -199,7 +199,7 @@ class GeneratorHopf(CPG):
         self.state = np.zeros((2,self.N))
         self.freq = np.zeros(self.N)
         self.dstate = np.zeros((2,self.N))
-        self.radius = np.zeros(self.N)
+        self.radius_2 = np.zeros(self.N)
         self.phase = np.zeros(self.N)
         self.phase_off = np.zeros(self.N) # track rotations to give continuous phase output
         self.x_last = np.zeros(self.N)
@@ -207,15 +207,20 @@ class GeneratorHopf(CPG):
         self.d_ext = np.zeros(self.N)
         self.d_biases = np.zeros((self.N,self.N)) # delta for phase bias updates
 
-        # filtered extension dynamics
+        # filtered dynamics
         self.off_tar = np.zeros(self.N)
         self.off = np.zeros(self.N)
         self.d_off = np.zeros(self.N)
         self.off_gain = 2.0
+        self.d_freq = np.zeros(self.N)
+        self.freq_gain = 5.0
 
         # feedback term applied to both state variables
-        self.feedback = np.zeros(2)
+        self.feedback = np.zeros((2,self.N))
+        self.feed_gain = 0.2
         self.disturbance = np.zeros((2,self.N))
+        self.ext_out = np.zeros(self.N)
+        self.rot_out = np.zeros(self.N)
 
         # pseudo-differential drive parameters
         # need wheg objects for each oscillator to get basic parameters and do some inverse kinematics
@@ -235,17 +240,18 @@ class GeneratorHopf(CPG):
         return  np.array([[cos(theta),-sin(theta)],[sin(theta),cos(theta)]])
 
     def euler_update(self, t_step):
-        # phase and extension offset dynamics
+        # phase offset integrating
         self.bias_inter += self.d_biases * t_step
-        # self.d_off = self.off_gain * (.25 * self.off_gain * (self.off_tar-self.off))
-        # self.off += self.d_off
+        #print(self.freq)
 
         for i in range(self.N):
             #exp_m = np.exp(-1.0 *self.state[0,:] * self.freq_beta)
             #exp_p = np.exp(self.state[0,:] * self.freq_beta)
-            self.freq[i] = self.freq_const[i]
+            #dd_freq = (0.25 * self.freq_gain * (self.freq_tar[i] - self.freq[i]) - self.d_freq[i]) * self.freq_gain
+            self.d_freq[i] = self.freq_gain * (self.freq_tar[i] - self.freq[i])# dd_freq * t_step
+            self.freq[i] = self.freq_tar[i] #self.d_freq[i] * t_step
 
-            self.radius[i] = self.state[0,i]**2 + self.state[1,i]**2
+            self.radius_2[i] = self.state[0,i]**2 + self.state[1,i]**2
 
             # coupling term applied based on relative phase offset
             self.inter_sum = np.zeros(2)
@@ -255,11 +261,11 @@ class GeneratorHopf(CPG):
 
             # orbit dynamics
             # dx/dt = a*(u-r^2)*x - w*y
-            self.dstate[0,i] = (self.weights_converge[0,i] * (self.amplitudes[i] - self.radius[i] ** 2) * self.state[0,i]
-                                - self.freq[i] * self.state[1, i] + self.inter_sum[0])
+            self.dstate[0, i] = (self.weights_converge[0,i] * (self.amplitudes[i] - self.radius_2[i]) * self.state[0,i]
+                                 - self.freq[i] * self.state[1, i] + self.inter_sum[0] + self.feedback[0,i])
             # dy/dt = a*(u-r^2)*y - w*x
-            self.dstate[1, i] = (self.weights_converge[0,i] * (self.amplitudes[i] - self.radius[i] ** 2) * self.state[1, i]
-                                 + self.freq[i] * self.state[0, i] + self.inter_sum[1])
+            self.dstate[1, i] = (self.weights_converge[0,i] * (self.amplitudes[i] - self.radius_2[i]) * self.state[1, i]
+                                 + self.freq[i] * self.state[0, i] + self.inter_sum[1] + self.feedback[0,i])
 
             # apply derivatives by euler method
             self.x_last[i] = 1.0*self.state[1, i]  # track last state for phase check
@@ -284,16 +290,18 @@ class GeneratorHopf(CPG):
         self.state[:, n] = state
 
     def wheel_feedback(self,rot,ext):
-        for i in range(self.N):
-            self.d_rot = self.phase[i] - rot[i]
-            self.d_ext = self.radius[i] - ext[i]
-        pass
+        # feedback error calculated using the last commanded output and current estimate
+        self.d_rot = self.rot_out - rot
+        self.d_ext = self.ext_out - ext
+        self.feedback[0,:] = self.d_rot * self.feed_gain * np.cos(self.rot_out)
+        self.feedback[1,:] = self.d_rot * self.feed_gain * np.sin(self.rot_out)
+        print(self.feedback)
 
     def wheel_output(self):
         # return current phase and extension
-        ext = (self.radius-1.0) + (self.state[0,:]-1.0)*self.ext_amp*0.5
-        rot = self.phase/self.n_arc
-        return rot.tolist(),[max(e,0.0) for e in ext]
+        self.ext_out = (np.sqrt(self.radius_2)-1.0) + (self.state[0,:]-1.0)*self.ext_amp*0.5
+        self.rot_out = self.phase/self.n_arc
+        return self.rot_out.tolist(),[max(e,0.0) for e in self.ext_out]
 
     def perturbation(self, n, sigmas):
         noise_x = self.random_state.randn(self.N) * sigmas[0]
@@ -310,8 +318,9 @@ class GeneratorHopf(CPG):
 
         # wheel speed ~= oscillator frequency, get from diff drive kinematics
         differential = (w * self.wheel_dist / self.wheel_rad)
-        self.freq_const[:] = ((v * self.n_arc / self.wheel_rad) + self.wheel_dir * differential)
-        # phase biases must change over time to compensate for differential motion
+        self.freq_tar[:] = ((v * self.n_arc / self.wheel_rad) + self.wheel_dir * differential)
+
+        # phase biases must change over time to induce differential steering
         self.d_biases = self.b_turn_ccw * differential
 
         # get phase difference from requested ride height, only calculate if height changes
@@ -321,5 +330,5 @@ class GeneratorHopf(CPG):
             # phase difference sent to control is relative to completely closed position
             p,p_l = self.wheels[0].p_closed - self.wheels[0].calc_phase_diff(h)
             self.amplitudes[:] = p + 1.0
-            print('ph diffs : ',p,p_l)
+            #print('ph diffs : ',p,p_l)
             self.ext_amp[:] = abs(p_l - p)

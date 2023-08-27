@@ -11,13 +11,13 @@ parameters = [5,15.0,45.521,
 
 wheel = WhegFourBar(parameters, "wheg")
 
-plot = True
+plot = False
 
-iters = 101
+iters = 100
 steps = 1
 
-com_height = 80
-# x position at switch will always be when leg is 1/2*1/N rotations behind
+com_height = 65
+# x position at switch will always be when leg is 1/2*1/N rotations behind ??
 x_start = np.sin(2*np.pi/5) * com_height
 x_stop = -x_start
 
@@ -101,7 +101,11 @@ plt.plot(trajectory.T)
 plt.legend(["phi1","phi2"])
 
 plt.subplot(222)
+x = np.linspace(0,100,1)
+para = 0.008*(x**2) - 0.8*x - 36
 plt.plot(diff.T)
+plt.plot(x,para,'--')
+plt.legend(['phase diff','parabola'])
 
 plt.subplot(223)
 plt.plot(xy.T)

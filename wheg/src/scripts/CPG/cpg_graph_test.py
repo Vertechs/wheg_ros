@@ -37,7 +37,7 @@ gen2.target_amps = np.array([0.5, 0.5, 0.5, 0.5])
 gen2.target_offs = np.zeros(4)
 gen2.own_freq[:] = 1.0
 
-gen2.weights = 0.0*(np.ones((4, 4)) - np.eye(4))
+gen2.weights = 2.0*(np.ones((4, 4)) - np.eye(4))
 gen2.biases[:] = gen2.b_q_off
 
 gen2.perturbation(0,[.01, .01, .01])
@@ -47,7 +47,7 @@ gen2.diff_input(10.0, 0.0, gen2.wheel_rad)
 ## Modified hopf oscillators
 gen3 = wheg_utils.generators.mod_hopf_net.GeneratorHopf(4,robot)
 
-gen3.freq_const = np.ones(gen3.N)
+gen3.freq_tar = np.ones(gen3.N)
 gen3.weights_converge = np.vstack([np.ones((1,4))*5,np.ones((1,4))*5])
 gen3.amplitudes = np.ones(gen3.N)
 
@@ -55,7 +55,7 @@ gen3.amplitudes = np.ones(gen3.N)
 #                                [-1,0,-1,1],
 #                                [-1,1,0,-1],
 #                                [1,-1,-1,0]])
-gen3.weights_inter = 0.5 * (np.ones((gen3.N,gen3.N)) - np.eye(gen3.N))
+gen3.weights_inter = 1.0 * (np.ones((gen3.N,gen3.N)) - np.eye(gen3.N))
 gen3.bias_inter = gen3.b_q_off
 
 for i in range(4):
@@ -109,7 +109,7 @@ for t in range(max_iter):
 
     y[0][:,t] = gen2.wheel_output()[0]
     y[1][:,t] = gen2.wheel_output()[1]
-    y[2][:,t] = gen3.wheel_output()[0]
+    y[2][:,t] = gen3.wheel_output()[0]# gen3.freq #
     y[3][:,t] = gen3.wheel_output()[1]
     y[4][:,t] = gen4.wheel_output()[0]
     y[5][:,t] = gen4.wheel_output()[1]
@@ -119,6 +119,9 @@ for t in range(max_iter):
 
     #px[t] = gen4.x
     #py[t] = gen4.y
+    if t %2 == 0:
+        gen2.wheel_feedback(gen2.rot_out*(1-np.random.randn()*.2),0.0)
+        #gen3.wheel_feedback(gen2.rot_out*(1.0),0.0)
 
     if t == int(10/t_step):
         gen2.diff_input(10.0,0.0,gen2.wheel_rad*1.5)

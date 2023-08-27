@@ -13,10 +13,12 @@ class GeneratorKuramoto(CPG):
         self.phi = np.zeros(n)
         self.amp = np.zeros(n)
         self.off = np.zeros(n)
+        self.own_freq = np.ones(n)
 
         # init dt state vectors
         self.d_amp = np.zeros(n)
         self.d_off = np.zeros(n)
+        self.d_freq = np.zeros(n)
 
         # reference weight matrices to interpolate between
         self.w_full = np.ones((n, n)) - np.diag(np.ones((1, n)))
@@ -43,15 +45,20 @@ class GeneratorKuramoto(CPG):
         self.d_weights = np.zeros((n,n))
 
         # control parameters
-        self.own_freq = np.ones(n)
-        self.freq_set = np.zeros(n)
-        self.target_amps = np.ones(n) # Not used
+        self.freq_tar = np.zeros(n)
+        self.target_amps = np.ones(n)
         self.target_offs = np.zeros(n)
-        self.target_amp_norm = np.zeros(n)
+        self.target_amp_norm = np.zeros(n) #not used
+
+        # feedback variables
+        self.d_rot = np.zeros(n)
+        self.d_ext = np.zeros(n)
 
         # gain parameters, how fast converges
         self.gain_off = 2.0 # rad/s
         self.gain_amp = 2.0 # rad/s
+        self.freq_gain = 5
+        self.feed_gain = -0.2
 
         self.random_state = np.random.RandomState(111)
 
@@ -74,6 +81,10 @@ class GeneratorKuramoto(CPG):
 
         # for each oscillator
         for i in range(self.N):
+            # FREQUENCY UPDATE
+            #dd_freq = (0.25 * self.freq_gain * (self.freq_tar[i] - self.own_freq[i]) - self.d_freq[i]) * self.freq_gain
+            self.d_freq[i] = self.freq_gain * (self.freq_tar[i] - self.own_freq[i]) #+= dd_freq * time_step #
+            self.own_freq[i] += self.d_freq[i] * time_step
 
             # PHI UPDATE // get (delta_phase / dt)
             delphi = self.own_freq[i]
@@ -83,6 +94,7 @@ class GeneratorKuramoto(CPG):
                     inner = np.sin(inner)
                     inner = self.weights[i,j] * self.amp[j] * inner
                     delphi += inner
+            delphi += self.d_rot[i] * self.feed_gain
 
             self.phi[i] += time_step * delphi
 
@@ -125,12 +137,11 @@ class GeneratorKuramoto(CPG):
         self.rot_out = self.phi / self.n_arc
         return self.rot_out.tolist(),[max(0.0,s) for s in self.ext_out]
 
-    def wheel_input(self,rot,ext):
+    def wheel_feedback(self,rot,ext):
         # adjust internal states based on estimated position and last commanded position
-        self.phi[:] = rot
+        self.d_rot = self.rot_out - rot
         # only change the offset state; leaving amplitude as a completely internal state
-        self.off[:] = ext - self.ext_out
-        pass
+        self.d_ext = self.ext_out - ext
 
     def oscillator_input(self,v : np.ndarray,e : np.ndarray, cross_weight):
         # set oscillator frequency and offset directly
@@ -144,8 +155,8 @@ class GeneratorKuramoto(CPG):
 
         # wheel speed ~= oscillator frequency, get from diff drive kinematics
         differential = (w * self.wheel_dist / self.wheel_rad)
-        self.own_freq[:] = (v * self.n_arc / self.wheel_rad) + self.freq_ccw * differential
-        print(self.own_freq)
+        self.freq_tar[:] = (v * self.n_arc / self.wheel_rad) + self.freq_ccw * differential
+        print(self.freq_tar)
         # phase biases change over time to induce differential motion
         self.d_biases = self.b_turn_ccw * differential * 2
 
