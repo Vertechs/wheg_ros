@@ -240,6 +240,7 @@ class WhegFourBar:
     def calc_phase_diff(self,eff_rad):
         # essentially the inverse of the above, get a phase difference from a requested radius
         p = self.calc_IK(eff_rad,0.0)
-        return p[1] - p[0]
+        p_l = self.calc_IK(eff_rad,self.arcLength*sin(self.stepAngle/2))
+        return p[1] - p[0], p_l[1]-p_l[0]
 
 

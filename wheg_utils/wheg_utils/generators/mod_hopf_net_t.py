@@ -8,7 +8,7 @@ from wheg_utils.robot_config import RobotDefinition
 # Implementing Hopf oscillator with variable speed
 # model from DOI:10.1109/ROBOT.2008.4543306)
 
-class GeneratorHopfMod(CPG):
+class GeneratorHopf(CPG):
     def __init__(self, num_oscillators : int, robot : RobotDefinition):
         #==Constant Parameters==#
         self.N = num_oscillators
@@ -19,6 +19,7 @@ class GeneratorHopfMod(CPG):
         self.bias_inter = np.zeros((self.N,self.N))
         self.freq_off = np.ones(self.N) * 0.1
         self.ext_gains = np.ones(self.N) * 0.1
+        self.ext_amp = np.zeros(self.N)
 
         # phase bias arrays for starting and turning
         self.b_q_off = np.array([[0 ,1 ,2 ,3],
@@ -33,6 +34,7 @@ class GeneratorHopfMod(CPG):
         self.R = self.R_matrix(0) # intermediate term for update math
         self.inter_sum = np.zeros(2)
 
+
         #==Dynamic Variables==#
         self.state = np.zeros((2,self.N))
         self.freq = np.zeros(self.N)
@@ -44,9 +46,12 @@ class GeneratorHopfMod(CPG):
         self.d_rot = np.zeros(self.N) # delta terms for wheel feedback
         self.d_ext = np.zeros(self.N)
         self.d_biases = np.zeros((self.N,self.N)) # delta for phase bias updates
-        # try filtered extension
-        self.ext_off = np.zeros(self.N)
-        self.ext_tar = np.zeros(self.N)
+
+        # filtered extension dynamics
+        self.off_tar = np.zeros(self.N)
+        self.off = np.zeros(self.N)
+        self.d_off = np.zeros(self.N)
+        self.off_gain = 2.0
 
         # feedback term applied to both state variables
         self.feedback = np.zeros(2)
@@ -63,23 +68,24 @@ class GeneratorHopfMod(CPG):
         self.wheel_rad = robot.modules[0].radius
         self.wheel_dir = np.array([-1,1,-1,1]) # oscillator phases move positive, output must be flipped for left wheels
         self.height = 0.0
+        self.freq_beta = 1.0
         self.random_state = np.random.RandomState(111)
 
     def R_matrix(self,theta):
         return  np.array([[cos(theta),-sin(theta)],[sin(theta),cos(theta)]])
 
     def euler_update(self, t_step):
-        # phase offset dynamics
+        # phase and extension offset dynamics
         self.bias_inter += self.d_biases * t_step
-        self.ext_off = (self.ext_tar-self.ext_off) * self.ext_gains * t_step
+        # self.d_off = self.off_gain * (.25 * self.off_gain * (self.off_tar-self.off))
+        # self.off += self.d_off
 
         for i in range(self.N):
-            phi = np.arctan(self.state[1,i]/self.state[0,i])
+            #exp_m = np.exp(-1.0 *self.state[0,:] * self.freq_beta)
+            #exp_p = np.exp(self.state[0,:] * self.freq_beta)
             self.freq[i] = self.freq_const[i]
 
             self.radius[i] = self.state[0,i]**2 + self.state[1,i]**2
-
-
 
             # coupling term applied based on relative phase offset
             self.inter_sum = np.zeros(2)
@@ -87,14 +93,13 @@ class GeneratorHopfMod(CPG):
                 self.R = self.R_matrix(self.bias_inter[i,j])
                 self.inter_sum += self.weights_inter[i,j] * np.matmul(self.R,self.state[:,j])
 
+            # orbit dynamics
             # dx/dt = a*(u-r^2)*x - w*y
-            A = self.weights_converge[0,i] #/ (self.amplitudes[i] * phi**2)
-            self.dstate[0,i] = (A * (self.amplitudes[i] - self.radius[i] ** 2) * self.state[0,i]
-                                - self.freq[i] * self.state[1, i] + self.inter_sum[0])
+            self.dstate[0,i] = (self.weights_converge[0,i] * (self.amplitudes[i] * phi**2 - self.radius[i] ** 2) * self.state[0,i]
+                                - self.freq[i] * self.state[1, i])# + self.inter_sum[0])
             # dy/dt = a*(u-r^2)*y - w*x
-            B = self.weights_converge[1, i] #/ (self.amplitudes[i] * phi**2)
-            self.dstate[1, i] = (B * (self.amplitudes[i] - self.radius[i] ** 2) * self.state[1, i]
-                                 + self.freq[i] * self.state[0, i] + self.inter_sum[1])
+            self.dstate[1, i] = (self.weights_converge[0,i] * (self.amplitudes[i] * phi**2 - self.radius[i] ** 2) * self.state[1, i]
+                                 + self.freq[i] * self.state[0, i])# + self.inter_sum[1])
 
             # apply derivatives by euler method
             self.x_last[i] = 1.0*self.state[1, i]  # track last state for phase check
@@ -126,7 +131,7 @@ class GeneratorHopfMod(CPG):
 
     def wheel_output(self):
         # return current phase and extension
-        ext = self.ext_off * (1+self.state[0,:]*0.2)
+        ext = (self.radius-1.0) + (self.state[0,:]-1.0)*self.ext_amp*0.5
         rot = self.phase/self.n_arc
         return rot.tolist(),[max(e,0.0) for e in ext]
 
@@ -154,6 +159,8 @@ class GeneratorHopfMod(CPG):
         if h != self.height:
             self.height = h
             # phase difference sent to control is relative to completely closed position
-            p = self.wheels[0].p_closed - self.wheels[0].calc_phase_diff(h)
-            print('diff:',p)
-            self.ext_tar[:] = p
+            p,p_l = self.wheels[0].p_closed - self.wheels[0].calc_phase_diff(h)
+            self.amplitudes[:] = p + 1.0
+            print('ph diffs : ',p,p_l)
+            self.ext_amp[:] = abs(p_l - p)
+

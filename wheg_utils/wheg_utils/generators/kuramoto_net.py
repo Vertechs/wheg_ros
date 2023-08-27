@@ -32,21 +32,19 @@ class GeneratorKuramoto(CPG):
         self.b_turn_ccw = np.array([[0 ,1 ,0 ,1],
                                     [-1,0 ,1,0],
                                     [0,-1 ,0 ,1],
-                                    [-1,0,-1,0]]) * (np.pi/2)
+                                    [-1,0,-1,0]])
+        self.freq_ccw = np.array([-1, 1, -1, 1])  # wheel directions for ccw turning
 
         # relational parameters and rates of change
         self.weights = self.w_full
         self.biases = np.zeros((n,n))
-
-        # amplitude of oscillators is always 1.0 to avoid changing weight influences
-        # normalizing term calculated from IK is used when sending final phase differences to controller
-        self.amp_norm = 0.0
 
         self.d_biases = np.zeros((n,n))
         self.d_weights = np.zeros((n,n))
 
         # control parameters
         self.own_freq = np.ones(n)
+        self.freq_set = np.zeros(n)
         self.target_amps = np.ones(n) # Not used
         self.target_offs = np.zeros(n)
         self.target_amp_norm = np.zeros(n)
@@ -66,17 +64,13 @@ class GeneratorKuramoto(CPG):
         self.wheel_dist = robot.wheel_base_width
         self.n_arc = robot.modules[0].n_arc
         self.wheel_rad = robot.modules[0].radius
-        self.wheel_dir = np.array([-1,1,-1,1]) # oscillator phases move positive, output must be flipped for left wheels
         self.height = 0.0
         self.rot_out_offset = self.n_arc
 
     def euler_update(self, time_step):
         # eulers method, y(t+1) = y(t) + T*h(t,y)
-        T = time_step
-
-        # integrate changes in bias and weight matrix
-        self.biases += self.d_biases * T
-        self.weights += self.d_weights * T
+        # integrate changes in bias matrix
+        self.biases += self.d_biases * time_step
 
         # for each oscillator
         for i in range(self.N):
@@ -90,21 +84,19 @@ class GeneratorKuramoto(CPG):
                     inner = self.weights[i,j] * self.amp[j] * inner
                     delphi += inner
 
-            self.phi[i] += T * delphi
+            self.phi[i] += time_step * delphi
 
             # AMP UPDATE // (delta^2_amplitude / d^2t)
             inner = 0.25 * self.gain_amp * (self.target_amps[i]-self.amp[i])
             ddelamp = self.gain_amp * (inner - self.d_amp[i])
-            self.d_amp[i] += T * ddelamp
-            self.amp[i] += T * self.d_amp[i]
+            self.d_amp[i] += time_step * ddelamp
+            self.amp[i] += time_step * self.d_amp[i]
 
-            #print('anorm:',self.amp_norm)
-            self.amp_norm += (self.target_amp_norm-self.amp_norm) * self.gain_amp * T
             # OFF UPDATE // (delta^2_offsets / d^2t)
             inner = 0.25 * self.gain_off * (self.target_offs[i] - self.off[i])
             ddeloff = self.gain_off * (inner - self.d_off[i])
-            self.d_off[i] += T * ddeloff
-            self.off[i] += T * self.d_off[i]
+            self.d_off[i] += time_step * ddeloff
+            self.off[i] += time_step * self.d_off[i]
 
     def reset_oscillators(self):
         self.phi = np.zeros(self.N)
@@ -129,7 +121,7 @@ class GeneratorKuramoto(CPG):
         return theta
 
     def wheel_output(self):
-        self.ext_out = self.amp * np.sin(self.phi) * self.amp_norm + self.off
+        self.ext_out = self.amp * np.sin(self.phi) + self.off
         self.rot_out = self.phi / self.n_arc
         return self.rot_out.tolist(),[max(0.0,s) for s in self.ext_out]
 
@@ -152,19 +144,20 @@ class GeneratorKuramoto(CPG):
 
         # wheel speed ~= oscillator frequency, get from diff drive kinematics
         differential = (w * self.wheel_dist / self.wheel_rad)
-        self.own_freq[:] = (v * self.n_arc / self.wheel_rad) + self.wheel_dir * differential
-        # phase biases must change over time to compensate for differential motion
-        self.d_biases = self.b_turn_ccw * differential
+        self.own_freq[:] = (v * self.n_arc / self.wheel_rad) + self.freq_ccw * differential
+        print(self.own_freq)
+        # phase biases change over time to induce differential motion
+        self.d_biases = self.b_turn_ccw * differential * 2
 
         # get phase difference from requested ride height, only calculate if height changes
         # *** this assumes wheels are all the same to lower computation time ***
         if h != self.height:
             self.height = h
             # phase difference sent to control is relative to completely closed position
-            p = self.wheels[0].p_closed - self.wheels[0].calc_phase_diff(h)
-            self.target_amp_norm = 0.2 * p #TODO get this from IK
+            p,p_l = self.wheels[0].p_closed - self.wheels[0].calc_phase_diff(h)
+            self.target_amps[:] = abs(p_l-p) #TODO get this from IK
             #print(p)
-            self.target_offs[:] = p * (1 - 0.5 * self.amp_norm)
+            self.target_offs[:] = (p+p_l)/2
 
 
 
