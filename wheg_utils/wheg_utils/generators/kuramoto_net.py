@@ -114,6 +114,7 @@ class GeneratorKuramoto(CPG):
         self.phi = np.zeros(self.N)
         self.amp = self.target_amps
         self.off = self.target_offs
+        self.freq = self.freq_tar
 
     def perturbation(self,n,sigmas):
         # gaussian additive noise
@@ -133,8 +134,10 @@ class GeneratorKuramoto(CPG):
         return theta
 
     def wheel_output(self):
+        # self.ext_out = self.off + self.amp * np.sin(self.phi)
+        # self.rot_out = self.phi / self.n_arc
         self.ext_out = self.off - np.abs(self.amp * np.sin(self.phi))
-        self.rot_out = self.phi / self.n_arc
+        self.rot_out = 2 * self.phi / self.n_arc
         return self.rot_out.tolist(),[max(0.0,s) for s in self.ext_out]
 
     def wheel_feedback(self,rot,ext):

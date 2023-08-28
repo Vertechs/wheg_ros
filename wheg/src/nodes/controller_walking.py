@@ -85,7 +85,7 @@ class PController(can.Listener):
             self.whegs.append(WhegFourBar(robot.modules[i].four_bar.get_parameter_list()))
         
         # directions depending on motor location and wheel orientation #TODO move to config
-        self.ext_dir = [-1,-1,1,-1] # extension direction for each wheel s.t. expanding is +
+        self.ext_dir = [1,-1,1,-1] # extension direction for each wheel s.t. expanding is +
         self.rot_dir = [-1,1,-1,1]  # rotation direction for each wheel s.t. forward is +
             
         # load gear ratios for drive
@@ -146,7 +146,7 @@ class PController(can.Listener):
     def speed_check(self):
         # failsafe to check that the commanded position is not too far
         for i in range(self.n_whl):
-            if abs(self.phi_tar[i] - self.phi_hat[i]) > 2.0:
+            if abs(self.phi_tar[i] - self.phi_hat[i]) > 10.0:
                 rospy.logerr("command too high for %d:"%i)
                 rospy.logerr([self.phi_tar[i],self.phi_hat[i]])
                 quit()
@@ -155,10 +155,10 @@ class PController(can.Listener):
         for i in range(self.n_whl):
             self.phi_tar_check[:] = self.phi_tar
             # calculate motor phases from gearing ratios
-            self.e = (self.ext_tar[i] * self.ext_ratio[i]) * self.ext_dir[i] * 0.5
-            self.p = self.rot_tar[i] * self.rot_dir[i]
-            self.phi_tar[2*i] = self.outer_ratio[i] * (self.p - self.e) * CIRC
-            self.phi_tar[2*i+1] = self.inner_ratio[i] * (self.p + self.e) * CIRC
+            self.e = (self.ext_tar[i] * self.ext_ratio[i]) * self.ext_dir[i] 
+            self.p = self.rot_tar[i] * self.rot_dir[i] #TODO check ratios??
+            self.phi_tar[2*i] = self.outer_ratio[i] * (self.p - 0.0*self.e) * CIRC
+            self.phi_tar[2*i+1] = self.inner_ratio[i] * (self.p + .8*self.e) * CIRC
             
             #self.trq_ff[2*i:2*i+1] = self.wheg.IK_f(self.phi_hat[..]) #TODO get from IK wheg object
         

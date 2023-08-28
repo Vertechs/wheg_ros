@@ -25,14 +25,13 @@ class Generator:
         self.cpg = wheg_utils.generators.kuramoto_net.GeneratorKuramoto(n_whl,robot)
         self.n_whl = n_whl
 
-        # "walking" gate, all wheel phases one quarter turn offset
+        # define starting gate, all wheel phases one quarter turn offset
         self.cpg.weights = np.ones((4, 4)) - np.eye(4)
         self.cpg.biases = self.cpg.b_q_off
         
-        self.cpg.target_amps = np.array([0.5, 0.5, 0.5, 0.5])
-        self.cpg.target_offs = np.zeros(4)
-        self.cpg.diff_input(1.0,0.0,self.cpg.wheel_rad)
-        #print(self.cpg.target_offs,self.cpg.target_amp_norm)
+        # send first command to initilize. shift states to avoid unstable eq 
+        self.cpg.diff_input(10,0.0,self.cpg.wheel_rad)
+        self.cpg.perturbation(0,[0.01,0.01,0.01]) # TODO get state from feedback
         
         #=== ROS Setup ===#
         rospy.init_node("central_pattern_generator")
@@ -49,6 +48,7 @@ class Generator:
         
         self.target_pub = rospy.Publisher("walk_pos_cmd", ros_msg.Float32MultiArray, queue_size = 2)
         
+        # init command and estimated wheel position arrays
         self.target_message = ros_msg.Float32MultiArray(data = [0.0]*n_whl*2)
         self.ext_tar = [0.0]*n_whl
         self.rot_tar = [0.0]*n_whl
@@ -69,7 +69,7 @@ class Generator:
         if msg.data[0] != 2:
             if self.enabled:
                 rospy.loginfo("Disabled, reset to zero")
-                self.cpg.diff_input(0.1,0.0,self.cpg.wheel_rad)
+                self.cpg.diff_input(10.0,0.0,self.cpg.wheel_rad)
                 self.cpg.reset_oscillators()
                 self.enabled = False
         elif msg.data[0] == 2:
@@ -79,7 +79,7 @@ class Generator:
     
     def vector_callback(self,msg):
         v,w,h,ax,ay = msg.data # x+ vel, z angular vel, ride height and angle
-        # call pseudo-differential drive controller in CPG
+        # call pseudo-differential drive controller defined in CPG object
         self.cpg.diff_input(v,w,h)
 
     def estimate_callback(self,msg):
