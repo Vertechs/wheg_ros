@@ -241,8 +241,14 @@ class WhegFourBar:
         # get the required phase differences for one half step forward and bottom dead center
         # eff_rad is desired distance measured from wheel center to ground
         p1_b,p2_b = self.calc_IK(eff_rad,0.0)
-        p1_h,p2_h = self.calc_IK(eff_rad,eff_rad*sin(self.stepAngle/2))
-        return p2_h-p1_h, p2_b-p1_b
+        pb_diff = p2_b - p1_b
+        try:
+            p1_h,p2_h = self.calc_IK(eff_rad,eff_rad*sin(self.stepAngle/2))
+            ph_diff = p2_h - p1_h
+        except:
+            # if IK fails the foot will not reach so just set the wheel to fully open
+            ph_diff = self.p_open
+        return ph_diff,pb_diff
 
 
 

@@ -80,7 +80,7 @@ class GeneratorHopfMod(CPG):
         return np.array([[cos(theta), -sin(theta)], [sin(theta), cos(theta)]])
 
     def amp_ph(self,phi,i):
-        return self.amplitudes[i] * cos(0.5*phi/self.N)
+        return self.amplitudes[i] - self.ext_amp[i] * cos(0.5*phi/self.N)
 
     def euler_update(self, t_step):
         # phase offset integrating
@@ -144,7 +144,7 @@ class GeneratorHopfMod(CPG):
 
     def wheel_output(self):
         # return current phase and extension
-        self.ext_out = (np.sqrt(self.radius_2) - 1.0) + (self.state[0, :]) * self.ext_amp * 0.5
+        self.ext_out = (np.sqrt(self.radius_2) - 1.0)
         self.rot_out = self.phase / self.n_arc
         return self.rot_out.tolist(), [max(e, 0.0) for e in self.ext_out]
 

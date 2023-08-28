@@ -38,7 +38,7 @@ gen2.target_amps = np.array([0.5, 0.5, 0.5, 0.5])
 gen2.target_offs = np.zeros(4)
 gen2.own_freq[:] = 1.0
 
-gen2.weights = 5.0*(np.ones((4, 4)) - np.eye(4))
+gen2.weights = 1.0*(np.ones((4, 4)) - np.eye(4))
 gen2.biases[:] = gen2.b_q_off
 
 gen2.perturbation(0,[.01, .01, .01])
@@ -62,7 +62,7 @@ gen3.bias_inter = gen3.b_q_off
 for i in range(4):
     gen3.set_state(i,[0.2,0.1])
 
-gen3.diff_input(100.0,0.0,gen3.wheel_rad*1.5)
+gen3.diff_input(100.0,0.0,gen3.wheel_rad)
 
 
 ## Van der pol coupled oscillators
@@ -138,12 +138,12 @@ for t in range(max_iter):
     y[6][:,t] = gen5.wheel_output()[0]
     y[7][:,t] = gen5.wheel_output()[1]
 
-    # px[t] = gen3.state[0,:]
-    # py[t] = gen3.state[1,:]
+    px[t] = gen3.state[0,:]
+    py[t] = gen3.state[1,:]
     # px[t] = gen4.x
     # py[t] = gen4.y
-    px[t] = gen5.state[0,:]
-    py[t] = gen5.state[1,:]
+    # px[t] = gen5.state[0,:]
+    # py[t] = gen5.state[1,:]
 
 
     if t % 2 == 0:
@@ -153,17 +153,17 @@ for t in range(max_iter):
         pass
 
     if t == int(10/t_step):
-        #gen2.diff_input(100.0,0.0,gen2.wheel_rad * 1.5)
+        gen2.diff_input(100.0,0.0,gen2.wheel_rad * 1.5)
         gen3.diff_input(100.0,0.0,gen3.wheel_rad * 1.5)
 
     if t == int(20/t_step):
-        #gen2.diff_input(0.0,0.1,gen2.wheel_rad * 1.5)
+        gen2.diff_input(0.0,0.1,gen2.wheel_rad * 1.5)
         gen3.diff_input(0.0,0.1,gen3.wheel_rad * 1.5)
         #gen4.diff_input(10.0,0.1,gen4.wheel_rad * 1.5)
 
     if t == int(32/t_step):
-        #gen2.biases[:] = gen2.b_q_off
-        #gen2.diff_input(20.0,0.0,gen2.wheel_rad)
+        gen2.biases[:] = gen2.b_q_off
+        gen2.diff_input(20.0,0.0,gen2.wheel_rad)
         gen3.diff_input(20.0,0.0,gen3.wheel_rad)
 
 for i in range(8):
@@ -171,8 +171,8 @@ for i in range(8):
     axs[i].set_title(titles[i])
     axs[i].legend(['0','1','2','3'])
 
-# plt.figure(2)
-# plt.plot(px,py)
+plt.figure(2)
+plt.plot(px,py)
 plt.show(block=True)
 
 

@@ -142,7 +142,7 @@ class GeneratorHopf(CPG):
 
     def wheel_output(self):
         # return current phase and extension
-        self.ext_out = (np.sqrt(self.radius_2)-1.0) + (self.state[0,:]) * self.ext_amp*0.5
+        self.ext_out = (np.sqrt(self.radius_2)-1.0) - np.abs((self.state[0,:]) * self.ext_amp)
         self.rot_out = self.phase/self.n_arc
         return self.rot_out.tolist(),[max(e,0.0) for e in self.ext_out]
 
@@ -161,7 +161,7 @@ class GeneratorHopf(CPG):
 
         # wheel speed ~= oscillator frequency, get from diff drive kinematics
         differential = (w * self.wheel_dist / self.wheel_rad)
-        self.freq_tar[:] = (v / self.wheel_rad) # + self.wheel_dir * differential
+        self.freq_tar[:] = (v / self.wheel_rad)  + self.wheel_dir * differential
 
         # phase biases change over time to induce differential steering
         self.d_biases = self.b_turn_ccw * differential * 2
@@ -170,10 +170,11 @@ class GeneratorHopf(CPG):
         # *** this assumes wheels are all the same to lower computation time ***
         if h != self.height:
             self.height = h
-            # phase difference sent to control is relative to completely closed position
             # set desired radius/offset as the extension one half step forward
             # set oscillation amplitude as the difference between half step and bottom dead center
+            # phase difference sent to control is relative to completely closed position
             ph, pb = self.wheels[0].calc_phase_diffs(h)
-            self.amplitudes[:] = ph - self.wheels[0].p_closed  # desired radius
-            # print('ph diffs : ',p,p_l)
+            self.amplitudes[:] = self.wheels[0].p_closed - ph + 1.0  # desired radius
+            print('ph diffs : ', ph, pb)
+            print(self.wheels[0].p_closed)
             self.ext_amp[:] = ph - pb  # oscillation amplitudes

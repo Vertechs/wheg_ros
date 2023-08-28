@@ -92,7 +92,7 @@ class GeneratorKuramoto(CPG):
                 if j != i: # no self weights
                     inner = self.phi[j] - self.phi[i] - self.biases[i,j]
                     inner = np.sin(inner)
-                    inner = self.weights[i,j] * self.amp_norm[j] * inner
+                    inner = self.weights[i,j] * inner # amplitude term not included
                     delphi += inner
             #delphi += self.d_rot[i] * self.feed_gain
 
@@ -133,7 +133,7 @@ class GeneratorKuramoto(CPG):
         return theta
 
     def wheel_output(self):
-        self.ext_out = self.off - self.amp * np.sin(self.phi) #np.abs(
+        self.ext_out = self.off - np.abs(self.amp * np.sin(self.phi))
         self.rot_out = self.phi / self.n_arc
         return self.rot_out.tolist(),[max(0.0,s) for s in self.ext_out]
 
