@@ -237,10 +237,13 @@ class WhegFourBar:
         per = self.arcN * 2 * np.sin(np.pi / self.arcN) * rad
         return per / (2 * np.pi)
 
-    def calc_phase_diff(self,eff_rad):
-        # essentially the inverse of the above, get a phase difference from a requested radius
-        p = self.calc_IK(eff_rad,0.0)
-        p_l = self.calc_IK(eff_rad,self.arcLength*sin(self.stepAngle/2))
-        return p[1] - p[0], p_l[1]-p_l[0]
+    def calc_phase_diffs(self,eff_rad):
+        # get the required phase differences for one half step forward and bottom dead center
+        # eff_rad is desired distance measured from wheel center to ground
+        p1_b,p2_b = self.calc_IK(eff_rad,0.0)
+        p1_h,p2_h = self.calc_IK(eff_rad,eff_rad*sin(self.stepAngle/2))
+        return p2_h-p1_h, p2_b-p1_b
+
+
 
 

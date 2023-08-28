@@ -26,11 +26,11 @@ class GeneratorKuramoto(CPG):
         self.b_walk = np.array([[0 ,2 ,1 ,3],
                                  [-2,0 ,-1,1],
                                  [-1,1 ,0 ,2],
-                                 [-1,-1,-2,0]]) * (np.pi/2)
+                                 [-1,-1,-2,0]]) * (np.pi/4)
         self.b_q_off = np.array([[0 ,1 ,2 ,3],
                                  [-1,0 ,1, 1],
                                  [-2,-1 ,0 ,1],
-                                 [-1,-2,-1,0]]) * (np.pi/2)
+                                 [-1,-2,-1,0]]) * (np.pi/4)
         self.b_turn_ccw = np.array([[0 ,1 ,0 ,1],
                                     [-1,0 ,1,0],
                                     [0,-1 ,0 ,1],
@@ -48,7 +48,7 @@ class GeneratorKuramoto(CPG):
         self.freq_tar = np.zeros(n)
         self.target_amps = np.ones(n)
         self.target_offs = np.zeros(n)
-        self.target_amp_norm = np.zeros(n) #not used
+        self.amp_norm = np.ones(n) * 5.0
 
         # feedback variables
         self.d_rot = np.zeros(n)
@@ -57,7 +57,7 @@ class GeneratorKuramoto(CPG):
         # gain parameters, how fast converges
         self.gain_off = 2.0 # rad/s
         self.gain_amp = 2.0 # rad/s
-        self.freq_gain = 5
+        self.freq_gain = 1.0
         self.feed_gain = -0.2
 
         self.random_state = np.random.RandomState(111)
@@ -92,9 +92,9 @@ class GeneratorKuramoto(CPG):
                 if j != i: # no self weights
                     inner = self.phi[j] - self.phi[i] - self.biases[i,j]
                     inner = np.sin(inner)
-                    inner = self.weights[i,j] * self.amp[j] * inner
+                    inner = self.weights[i,j] * self.amp_norm[j] * inner
                     delphi += inner
-            delphi += self.d_rot[i] * self.feed_gain
+            #delphi += self.d_rot[i] * self.feed_gain
 
             self.phi[i] += time_step * delphi
 
@@ -133,7 +133,7 @@ class GeneratorKuramoto(CPG):
         return theta
 
     def wheel_output(self):
-        self.ext_out = self.amp * np.sin(self.phi) + self.off
+        self.ext_out = self.off - self.amp * np.sin(self.phi) #np.abs(
         self.rot_out = self.phi / self.n_arc
         return self.rot_out.tolist(),[max(0.0,s) for s in self.ext_out]
 
@@ -143,32 +143,29 @@ class GeneratorKuramoto(CPG):
         # only change the offset state; leaving amplitude as a completely internal state
         self.d_ext = self.ext_out - ext
 
-    def oscillator_input(self,v : np.ndarray,e : np.ndarray, cross_weight):
-        # set oscillator frequency and offset directly
-        for i in range(self.N):
-            self.own_freq[i] = v[i] * self.n_arc
-            self.target_amps[i] = 1+ e[i]
-            self.weights = self.w_full * (1-cross_weight) + self.w_half * cross_weight
-
     def diff_input(self, v, w, h):
         # implementing a pseudo-differential drive controller
 
         # wheel speed ~= oscillator frequency, get from diff drive kinematics
         differential = (w * self.wheel_dist / self.wheel_rad)
-        self.freq_tar[:] = (v * self.n_arc / self.wheel_rad) + self.freq_ccw * differential
-        print(self.freq_tar)
+        self.freq_tar[:] = ((v / self.wheel_rad) + self.freq_ccw * differential)
+        #print('freq:',self.freq_tar)
         # phase biases change over time to induce differential motion
         self.d_biases = self.b_turn_ccw * differential * 2
 
         # get phase difference from requested ride height, only calculate if height changes
-        # *** this assumes wheels are all the same to lower computation time ***
+        # *** currently assumes wheels are all the same to lower computation time ***
         if h != self.height:
             self.height = h
+
+            # set desired radius/offset as the extension one half step forward
+            # set oscillation amplitude as the difference between half step and bottom dead center
             # phase difference sent to control is relative to completely closed position
-            p,p_l = self.wheels[0].p_closed - self.wheels[0].calc_phase_diff(h)
-            self.target_amps[:] = abs(p_l-p) #TODO get this from IK
-            #print(p)
-            self.target_offs[:] = (p+p_l)/2
+            ph, pb = self.wheels[0].calc_phase_diffs(h)
+            self.target_offs[:] = self.wheels[0].p_closed - ph # desired radius
+            print('ph diffs : ',ph,pb)
+            print(self.wheels[0].p_closed)
+            self.target_amps[:] = ph - pb  # oscillation amplitudes
 
 
 

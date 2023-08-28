@@ -14,8 +14,14 @@ class GeneratorVdpNet(CPG):
 
         # weights should be small compared to amplitude
         self.weights = (np.ones((self.N,self.N)) - np.eye(self.N)) * -0.2
-        self.w_full = (np.ones((self.N,self.N)) - np.eye(self.N)) * -0.2
-        self.w_half = (np.array([]))
+        self.w_trot = np.array([[0,-1,1,-1],
+                               [-1,0,-1,1],
+                               [-1,1,0,-1],
+                               [1,-1,-1,0]]) * 0.2
+        self.w_walk = np.array([[0, -1, -1, -1],
+                                [-1, 0, -1, -1],
+                                [-1, -1, 0, -1],
+                                [-1, -1, -1, 0]]) * 0.2
 
         # Dynamic variables
         self.x = np.zeros(self.N)
@@ -77,7 +83,8 @@ class GeneratorVdpNet(CPG):
 
     def wheel_output(self):
         # return x component and current phase
-        return self.phase.tolist(),[max(0.0,p) for p in self.x]
+        ext = self.radius*0.1 +0.2#+ self.x * 0.1
+        return self.phase.tolist(),[min(1.11,max(0.0,p)) for p in ext]
 
     def graph_output(self):
         return self.x
@@ -90,6 +97,7 @@ class GeneratorVdpNet(CPG):
                     self.phase_off[i] += 2 * pi
                 if self.y[i] > 0.0 and self.y_last[i] < 0.0:
                     self.phase_off[i] -= 2 * pi
+
     def diff_input(self,v : float, w : float, h : float):
         if w > 0:
             self.osc_dir = [1,-1,1,-1]

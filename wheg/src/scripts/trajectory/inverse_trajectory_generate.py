@@ -2,6 +2,7 @@ import numpy as np
 from wheg_utils.four_bar_wheg_circ import WhegFourBar
 import matplotlib.pyplot as plt
 
+
 parameters = [5,15.0,45.521,
               30.0,65.0,62.337,
               8.0,np.deg2rad(58.7)]
@@ -95,15 +96,16 @@ np.savetxt("traj.csv", np.deg2rad(trajectory), delimiter=",")
 
 diff = trajectory[0,:] - trajectory[1,:]
 
+x = np.linspace(0,100,100)
+para = 0.008*(x**2) - 0.8*x - 36
+
 plt.figure(2)
 plt.subplot(221)
 plt.plot(trajectory.T)
 plt.legend(["phi1","phi2"])
 
 plt.subplot(222)
-x = np.linspace(0,100,1)
-para = 0.008*(x**2) - 0.8*x - 36
-plt.plot(diff.T)
+plt.plot(trajectory[0,:],diff.T)
 plt.plot(x,para,'--')
 plt.legend(['phase diff','parabola'])
 
