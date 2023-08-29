@@ -87,9 +87,9 @@ gen4 = wheg_utils.generators.van_der_pol_net.GeneratorVdpNet(4,robot)
 #gen4.set_parameters(np.tile(A.T,gen4.N))
 gen4.a[:] = np.ones(4) * 1.5
 gen4.p_2[:] = np.ones(4) * 2.0
-gen4.w_2[:] = np.ones(4) * 20.0
+gen4.w_2[:] = np.ones(4) * 2.5
 
-gen4.weights[:] = gen4.w_walk
+gen4.weights[:] = gen4.w_walk * 0.2
 
 for i in range(4):
     gen4.set_state(i,0.01*i,0.01*i)
@@ -123,6 +123,7 @@ py = np.zeros((max_iter,4))
 gen2.diff_input(100.0, 0.0, gen2.wheel_rad) # mm/s, rad/s, mm
 gen3.diff_input(100.0, 0.0, gen3.wheel_rad)
 gen5.diff_input(100.0, 0.0, gen5.wheel_rad)
+gen4.diff_input(10,0.0,gen5.wheel_rad*1.5)
 
 for t in range(max_iter):
     #gen1.euler_update(t_step)
@@ -177,6 +178,8 @@ for t in range(max_iter):
 for i in range(8):
     if i%2 == 1:
         axs[i].set_ylim([0,1.25])
+    else:
+        axs[i].set_ylim([0,10])
     axs[i].plot(x,y[i].T)
     axs[i].set_title(titles[i//2]+' '+subtitles[i%2])
     axs[i].legend(['0','1','2','3'])

@@ -36,12 +36,14 @@ class GeneratorVdpNet(CPG):
         self.x_A = 0.0
         self.radius = np.zeros(self.N)
         self.phase = np.zeros(self.N)
+        self.ext_amp = np.zeros(self.N)
+        self.ext_off = np.zeros(self.N)
 
         # control variables
         self.forcing = np.zeros(self.N)
         self.time = 0.0 # track time for forcing signal
         self.frq =  0.25
-        self.osc_dir = [1,1,1,1]
+        self.osc_dir = [-1,-1,-1,-1] # osc naturally moves cw, want ccw
         self.f_amp = 0.1
 
         # phase
@@ -64,7 +66,7 @@ class GeneratorVdpNet(CPG):
     def euler_update(self,t_step):
         self.time += t_step
         for i in range(self.N):
-            self.forcing[:] = sin(self.frq*self.time)*self.f_amp
+            self.forcing[:] = 0.0 #sin(self.frq*self.time)*self.f_amp
 
         for i in range(self.N):
             self.x_A = self.x[i]
@@ -92,10 +94,9 @@ class GeneratorVdpNet(CPG):
         return np.vstack([self.x[n],self.y[n]])
 
     def wheel_output(self):
-        # return x component and current phase
-        # TODO
-        ext = self.x * 0.1 + 0.5
-        rot = self.phase * 0.5 / self.n_arc
+        # normalize x output and use to control extension through the swing
+        ext = self.ext_off - self.ext_amp * self.x / (self.p_2)
+        rot = self.phase * 2.0 / self.n_arc
         return rot.tolist(),[min(1.11,max(0.0,p)) for p in ext]
 
     def graph_output(self):
@@ -117,4 +118,16 @@ class GeneratorVdpNet(CPG):
     def diff_input(self,v : float, w : float, h : float):
         if w > 0:
             self.osc_dir = [1,-1,1,-1]
-        pass
+        # get phase difference from requested ride height, only calculate if height changes
+        # *** this assumes wheels are all the same to lower computation time ***
+        if h != self.height:
+            self.height = h
+            # set desired radius/offset as the extension one half step forward
+            # set oscillation amplitude as the difference between half step and bottom dead center
+            # phase difference sent to control is relative to completely closed position
+            ph, pb = self.wheels[0].calc_phase_diffs(h)
+
+            # print('ph diffs : ', ph, pb)
+            self.ext_amp[:] = abs(ph - pb) * 0.5  # oscillation amplitudes
+            self.ext_off[:] = (self.wheels[0].p_closed - ph)  # desired radius
+        print(self.ext_amp,self.ext_off)
