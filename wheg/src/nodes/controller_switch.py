@@ -115,10 +115,10 @@ class ControllerSwitch:
         elif self.mode == 3:
             self.start_rolling()
             
-        if self.can_mode == 1:
-            self.disable_can_cyclic()
-        else:
-            self.enable_can_cyclic()
+        # if self.can_mode == 1:
+        #     self.disable_can_cyclic()
+        # else:
+        #     self.enable_can_cyclic()
             
         # broadcast new control status whenever it is updated
         self.ctrl_status_pub.publish(self.ctrl_msg)
@@ -138,7 +138,7 @@ class ControllerSwitch:
         
         for axis in self.axes:
             axis.config.can.heartbeat_rate_ms = 1000
-            axis.config.can.encoder_rate_ms = enc_rate
+            axis.config.can.encoder_rate_ms = 50 # TODO replace
             
         # Have to send an rtr frame to each drive to reset the cyclic message server
         for msg in self.rtr_msgs[::2]:
@@ -190,7 +190,7 @@ class ControllerSwitch:
             ax.encoder.set_linear_count(0)
             ax.requested_state = onum.AxisState.CLOSED_LOOP_CONTROL
             
-        # enable cyclic by default
+        # # enable cyclic by default
         self.enable_can_cyclic()
             
     # shutdown motor, idle all axes, reset encoders to 0 but still tracking

@@ -14,7 +14,6 @@ CPG_RATE = 100
 
 # wheel biases for differential drive and ride height calcs
 WHEEL_DIR = [1,-1,1,-1]
-WHEEL_EXT_DIR = []
 WHEEL_BIAS_X = [1,-1,1,-1]
 WHEEL_BIAS_Y = [-1, -1, 1, 1]
 
@@ -28,6 +27,8 @@ class Generator:
         # define starting gate, all wheel phases one quarter turn offset
         self.cpg.weights = np.ones((4, 4)) - np.eye(4)
         self.cpg.biases = self.cpg.b_q_off
+        self.cpg.gain_off = 1.5
+        self.cpg.gain_amp = 1.5
         
         # send first command to initilize. shift states to avoid unstable eq 
         self.cpg.diff_input(10,0.0,self.cpg.wheel_rad)
@@ -71,6 +72,7 @@ class Generator:
                 rospy.loginfo("Disabled, reset to zero")
                 self.cpg.diff_input(10.0,0.0,self.cpg.wheel_rad)
                 self.cpg.reset_oscillators()
+                self.iter_counter = 0
                 self.enabled = False
         elif msg.data[0] == 2:
             if not self.enabled:

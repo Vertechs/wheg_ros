@@ -163,6 +163,36 @@ class GeneratorHopf(CPG):
 
     def graph_output(self):
         return self.state[1,:]
+        
+    def reset_oscillators(self):
+         #==Dynamic Variables==#
+        self.state = np.zeros((2,self.N))
+        self.freq = np.zeros(self.N)
+        self.dstate = np.zeros((2,self.N))
+        self.radius_2 = np.zeros(self.N)
+        self.phase = np.zeros(self.N)
+        self.phase_off = np.zeros(self.N) # track rotations to give continuous phase output
+        self.x_last = np.zeros(self.N)
+        self.d_rot = np.zeros(self.N) # delta terms for wheel feedback
+        self.d_ext = np.zeros(self.N)
+        self.d_biases = np.zeros((self.N,self.N)) # delta for phase bias updates
+
+        # filtered dynamics
+        self.off_tar = np.zeros(self.N)
+        self.off = np.zeros(self.N)
+        self.d_off = np.zeros(self.N)
+        self.off_gain = 2.0
+        self.d_freq = np.zeros(self.N)
+        self.freq_gain = 4.0
+
+        # feedback term applied to both state variables
+        self.feedback = np.zeros((2,self.N))
+        self.feed_gain = 0.2
+        self.disturbance = np.zeros((2,self.N))
+        self.ext_out = np.zeros(self.N)
+        self.rot_out = np.zeros(self.N)
+        
+        
 
     def diff_input(self,v,w,h):
         # implementing a pseudo-differential drive controller
@@ -185,5 +215,5 @@ class GeneratorHopf(CPG):
             ph, pb = self.wheels[0].calc_phase_diffs(h)
 
             #print('ph diffs : ', ph, pb)
-            self.ext_amp[:] = abs(ph - pb)*0.5  # oscillation amplitudes
+            self.ext_amp[:] = abs(ph - pb)  # oscillation amplitudes
             self.amplitudes[:] = (self.wheels[0].p_closed - ph) - self.ext_amp + 1.0  # desired radius

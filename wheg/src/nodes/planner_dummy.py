@@ -67,10 +67,68 @@ class PlannerPassthrough:
                 if msgs[1] in CONTROL_MODES:
                     mode = CONTROL_MODES.index(msgs[1])
                     self.ctrl_msg.data = [mode,0]
-                    self.mode_pub.publish(msg)
-                    self.switch_pub.publish(self.ctrl_msg)
+                    self.mode_pub.publish()
+                    #self.switch_pub.publish(self.ctrl_msg)
                 else:
                     print("invalid switch mode")
+            
+            elif msg[0] == 'g':
+                self.diff.data = [0,0,65,0,0]
+                self.diff_pub.publish(self.diff)
+                self.mode_pub.publish('walk')
+                
+                self.diff.data = [300,0,65,0,0]
+                self.diff_pub.publish(self.diff)
+                time.sleep(5)
+                
+                self.diff.data = [300,0,85,0,0]
+                self.diff_pub.publish(self.diff)
+                time.sleep(0.5)
+                
+                self.diff.data = [300,0,100,0,0]
+                self.diff_pub.publish(self.diff)
+                time.sleep(9.5)
+                
+                self.diff.data = [300,0,65,0,0]
+                self.diff_pub.publish(self.diff)
+                time.sleep(5)
+                
+                self.mode_pub.publish('disable')
+                time.sleep(1)
+                self.mode_pub.publish('walk')
+                time.sleep(1)
+                self.mode_pub.publish('disable')
+                
+            elif msg[0] == 't':
+                self.diff.data = [0,0,65,0,0]
+                self.diff_pub.publish(self.diff)
+                self.mode_pub.publish('walk')
+                
+                self.diff.data = [300,0,65,0,0]
+                self.diff_pub.publish(self.diff)
+                time.sleep(1.5)
+                
+                self.diff.data = [300,0,85,0,0]
+                self.diff_pub.publish(self.diff)
+                time.sleep(1.5)
+                
+                self.diff.data = [300,0,100,0,0]
+                self.diff_pub.publish(self.diff)
+                time.sleep(1.5)
+                
+                self.diff.data = [0,0.4,100,0,0]
+                self.diff_pub.publish(self.diff)
+                time.sleep(10)
+                
+                self.diff.data = [300,0.0,65,0,0]
+                self.diff_pub.publish(self.diff)
+                time.sleep(5.0)
+                
+                self.mode_pub.publish('disable')
+                time.sleep(1)
+                self.mode_pub.publish('walk')
+                time.sleep(0.5)
+                self.mode_pub.publish('disable')
                 
                 
             else:

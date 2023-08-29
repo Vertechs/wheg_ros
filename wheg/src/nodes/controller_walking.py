@@ -132,7 +132,8 @@ class PController(can.Listener):
                 #self.send_estimates()
                 self.control_math()
                 self.speed_check()
-                self.send_commands()
+                if self.enabled: # check again in case speed check failed
+                    self.send_commands()
                 
                 # t2 = time.monotonic_ns()
                 # rospy.loginfo("Loop took %d us"%( (t2-t1) // 1000) )
@@ -147,9 +148,9 @@ class PController(can.Listener):
         # failsafe to check that the commanded position is not too far
         for i in range(self.n_whl):
             if abs(self.phi_tar[i] - self.phi_hat[i]) > 10.0:
-                rospy.logerr("command too high for %d:"%i)
-                rospy.logerr([self.phi_tar[i],self.phi_hat[i]])
-                quit()
+                rospy.logwarn("command too high for %d:, disabling controller"%i)
+                rospy.logwarn([self.phi_tar[i],self.phi_hat[i]])
+                self.enabled = False
         
     def control_math(self):
         for i in range(self.n_whl):
@@ -163,7 +164,6 @@ class PController(can.Listener):
             #self.trq_ff[2*i:2*i+1] = self.wheg.IK_f(self.phi_hat[..]) #TODO get from IK wheg object
         
     def send_commands(self):
-        # calculate desired positions
         for i in range(self.n_ax):
             # set message byte arrays with position and velocity and torque feed forward
             self.pos_msg[i].data = struct.pack('f',self.phi_tar[i])+struct.pack('h',self.vel_ff[i])+struct.pack('h',self.trq_ff[i])
