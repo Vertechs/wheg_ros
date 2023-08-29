@@ -21,15 +21,20 @@ class GeneratorHopfMod(CPG):
         self.ext_amp = np.zeros(self.N)
 
         # phase bias arrays for starting and turning
+        # offset is *2 because we are using abs(x) as the output
         self.b_q_off = np.array([[0, 1, 2, 3],
                                  [-1, 0, 1, 2],
                                  [-2, -1, 0, 1],
                                  [-3, -2, -1, 0]]) * (np.pi / 2)
-        # ^ not -1, using absolute phase so this bias matrix must be symmetric
-        self.b_turn_ccw = np.array([[0, 1, 0, 1],
-                                    [-1, 0, 1, 0],
-                                    [0, -1, 0, 1],
-                                    [-1, 0, -1, 0]])
+        # ^ not -1, bias matrix should be skew symmetric
+        self.b_trot = np.array([[0, 1, 1, 1],
+                                [-1, 0, 0, -1],
+                                [-1, 0, 0, -1],
+                                [0, 1, 1, 0]]) * (np.pi / 2)
+        self.b_turn_ccw = np.array([[0, -1, 0, -1],
+                                    [1, 0, -1, 0],
+                                    [0, 1, 0, -1],
+                                    [1, 0, 1, 0]])
 
         self.R = self.R_matrix(0)  # intermediate term for update math
         self.inter_sum = np.zeros(2)
@@ -80,7 +85,11 @@ class GeneratorHopfMod(CPG):
         return np.array([[cos(theta), -sin(theta)], [sin(theta), cos(theta)]])
 
     def amp_ph(self,phi,i):
-        return self.amplitudes[i] - self.ext_amp[i] * cos(0.5*phi/self.N)
+        px = self.height * sin(phi/self.n_arc)
+        ph = self.wheels[i].calc_IK_online(px,self.height)
+        return ph+1.0 # encode in amplitude with 1.0 offset to maintain limit cycle
+
+        # return (self.amplitudes[i]-1) * (cos(0.5*phi/self.N) / self.ext_amp[i]) +1
 
     def euler_update(self, t_step):
         # phase offset integrating
@@ -140,7 +149,7 @@ class GeneratorHopfMod(CPG):
         self.d_rot = self.rot_out - rot
         self.d_ext = self.ext_out - ext
         self.feedback = self.R_matrix(self.d_rot)  # TODO
-        print(self.feedback)
+        #print(self.feedback)
 
     def wheel_output(self):
         # return current phase and extension
@@ -166,16 +175,17 @@ class GeneratorHopfMod(CPG):
         self.freq_tar[:] = (v / self.wheel_rad)  # + self.wheel_dir * differential
 
         # phase biases change over time to induce differential steering
-        self.d_biases = self.b_turn_ccw * differential * 2
+        self.d_biases = self.b_turn_ccw * differential * 2.0
 
         # get phase difference from requested ride height, only calculate if height changes
         # *** this assumes wheels are all the same to lower computation time ***
         if h != self.height:
             self.height = h
-            # phase difference sent to control is relative to completely closed position
-            # set desired radius/offset as the extension one half step forward
-            # set oscillation amplitude as the difference between half step and bottom dead center
-            ph,pb = self.wheels[0].calc_phase_diffs(h)
-            self.amplitudes[:] = ph - self.wheels[0].p_closed # desired radius
-            # print('ph diffs : ',p,p_l)
-            self.ext_amp[:] = ph-pb # oscillation amplitudes
+        #     # phase difference sent to control is relative to completely closed position
+        #     # set desired radius/offset as the extension one half step forward
+        #     # set oscillation amplitude as the difference between half step and bottom dead center
+        #     ph,pb = self.wheels[0].calc_phase_diffs(h)
+        #     self.amplitudes[:] = self.wheels[0].p_closed - pb + 1.0 # desired radius
+        #     #print('ph diffs : ',ph,pb)
+        #     self.ext_amp[:] = pb # oscillation amplitudes
+        # print(self.ext_amp)

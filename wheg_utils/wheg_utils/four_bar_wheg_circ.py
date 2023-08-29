@@ -146,7 +146,7 @@ class WhegFourBar:
         # print(' B:',self.B,end='')
         C = np.array(self.circle_intersect(0, 0, self.inHubRadius, B[0], B[1], self.linkLength, -1))
         # print(' C:',self.C,end='\n')
-        thCB = arctan2(B[1] - C[1], B[0] - C[0])
+        #thCB = arctan2(B[1] - C[1], B[0] - C[0])
         pI = arctan2(C[1], C[0])
 
         return pO,pI
@@ -249,6 +249,17 @@ class WhegFourBar:
             # if IK fails the foot will not reach so just set the wheel to fully open
             ph_diff = self.p_open
         return ph_diff,pb_diff
+
+    def calc_IK_online(self,px,py):
+        # return IK approximation, meant for use in online controller
+        # currently calculating complete IK..
+        try:
+            p1_h,p2_h = self.calc_IK(py,px)
+            ph_diff = self.p_closed - (p2_h - p1_h)
+        except:
+            # if IK fails the foot will not reach so just set the wheel to fully open
+            ph_diff = self.p_open - self.p_closed
+        return ph_diff
 
 
 

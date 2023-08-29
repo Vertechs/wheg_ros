@@ -25,15 +25,20 @@ class GeneratorHopf(CPG):
         self.ext_amp = np.zeros(self.N)
 
         # phase bias arrays for starting and turning
+        # offset is *2 because we are using abs(x) as the output
         self.b_q_off = np.array([[0 ,1 ,2 ,3],
                                  [-1, 0 ,1, 2],
                                  [-2,-1 ,0 ,1],
                                  [-3,-2,-1,0]]) * (np.pi/2)
-                                # ^ not -1, using absolute phase so this bias matrix must be symmetric
-        self.b_turn_ccw = np.array([[0 ,1 ,0 ,1],
-                                    [-1,0 ,1,0],
-                                    [0,-1 ,0 ,1],
-                                    [-1,0,-1,0]])
+                                # ^ not -1, bias matrix should be skew symmetric
+        self.b_trot = np.array([[0, 1, 1, 1],
+                                [-1, 0, 0, -1],
+                                [-1, 0, 0, -1],
+                                [0, 1, 1, 0]]) * (np.pi / 2)
+        self.b_turn_ccw = np.array([[0,-1,0,-1],
+                                    [1,0,-1,0],
+                                    [0,1,0,-1],
+                                    [1,0,1,0]])
 
         self.R = self.R_matrix(0) # intermediate term for update math
         self.inter_sum = np.zeros(2)
@@ -98,10 +103,11 @@ class GeneratorHopf(CPG):
             self.radius_2[i] = self.state[0,i]**2 + self.state[1,i]**2
 
             # coupling term applied based on relative phase offset
-            self.inter_sum = np.zeros(2)
+            self.inter_sum[:] = np.zeros(2)
             for j in range(self.N):
-                self.R = self.R_matrix(self.bias_inter[i,j])
-                self.inter_sum += self.weights_inter[i,j] * np.matmul(self.R,self.state[:,j])
+                if j != i:
+                    self.R = self.R_matrix(self.bias_inter[i,j])
+                    self.inter_sum += self.weights_inter[i,j] * np.matmul(self.R,self.state[:,j])
 
             # orbit dynamics
             # dx/dt = a*(u-r^2)*x - w*y
@@ -142,8 +148,10 @@ class GeneratorHopf(CPG):
 
     def wheel_output(self):
         # return current phase and extension
-        self.ext_out = (np.sqrt(self.radius_2)-1.0) - np.abs((self.state[0,:]) * self.ext_amp)
-        self.rot_out = self.phase/self.n_arc
+        # self.ext_out = (np.sqrt(self.radius_2)-1.0) - np.abs((self.state[0,:]) * self.ext_amp)
+        # self.rot_out = self.phase/self.n_arc
+        self.ext_out = (np.sqrt(self.radius_2)-1.0) - self.ext_amp * (self.state[0, :] * 0.5)
+        self.rot_out = self.phase / self.n_arc
         return self.rot_out.tolist(),[max(e,0.0) for e in self.ext_out]
 
     def perturbation(self, n, sigmas):
@@ -160,6 +168,7 @@ class GeneratorHopf(CPG):
         # implementing a pseudo-differential drive controller
 
         # wheel speed ~= oscillator frequency, get from diff drive kinematics
+        rad = min(self.wheel_rad,h)
         differential = (w * self.wheel_dist / self.wheel_rad)
         self.freq_tar[:] = (v / self.wheel_rad)  + self.wheel_dir * differential
 
@@ -174,7 +183,7 @@ class GeneratorHopf(CPG):
             # set oscillation amplitude as the difference between half step and bottom dead center
             # phase difference sent to control is relative to completely closed position
             ph, pb = self.wheels[0].calc_phase_diffs(h)
-            self.amplitudes[:] = self.wheels[0].p_closed - ph + 1.0  # desired radius
-            print('ph diffs : ', ph, pb)
-            print(self.wheels[0].p_closed)
-            self.ext_amp[:] = ph - pb  # oscillation amplitudes
+
+            #print('ph diffs : ', ph, pb)
+            self.ext_amp[:] = abs(ph - pb)*0.5  # oscillation amplitudes
+            self.amplitudes[:] = (self.wheels[0].p_closed - ph) - self.ext_amp + 1.0  # desired radius

@@ -35,7 +35,7 @@ step_max = 100
 
 gen1.target_amps = np.ones(4)*np.pi/4
 gen1.target_offs = np.zeros(4)
-gen1.own_freq = np.ones(4)*5
+gen1.freq = np.ones(4) * 5
 
 T = 0.01
 Tstop = 20

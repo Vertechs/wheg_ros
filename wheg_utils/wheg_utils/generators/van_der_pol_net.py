@@ -11,6 +11,9 @@ class GeneratorVdpNet(CPG):
         # Static parameters
         self.N = num_oscillators
         self.para = np.ones((3,self.N)) # a, p^2, w^2
+        self.w_2 = np.ones(self.N)
+        self.p_2 = np.ones(self.N)
+        self.a = np.ones(self.N)
 
         # weights should be small compared to amplitude
         self.weights = (np.ones((self.N,self.N)) - np.eye(self.N)) * -0.2
@@ -29,12 +32,17 @@ class GeneratorVdpNet(CPG):
         self.dx = np.zeros(self.N)
         self.dy = np.zeros(self.N)
 
+        # intermediate variables
+        self.x_A = 0.0
         self.radius = np.zeros(self.N)
         self.phase = np.zeros(self.N)
 
-        self.time = 0.0
-        self.frq = np.ones(self.N) * 1.0
+        # control variables
+        self.forcing = np.zeros(self.N)
+        self.time = 0.0 # track time for forcing signal
+        self.frq =  0.25
         self.osc_dir = [1,1,1,1]
+        self.f_amp = 0.1
 
         # phase
         self.phase_off = np.zeros(self.N)
@@ -49,21 +57,23 @@ class GeneratorVdpNet(CPG):
         self.wheel_dist = robot.wheel_base_width
         self.n_arc = robot.modules[0].n_arc
         self.wheel_rad = robot.modules[0].radius
-        self.wheel_dir = np.array(
-            [-1, 1, -1, 1])  # oscillator phases move positive, output must be flipped for left wheels
+        self.wheel_dir = np.array([-1, 1, -1, 1])  # oscillator phases move positive, output must be flipped for left wheels
         self.height = 0.0
         self.random_state = np.random.RandomState(111)
 
     def euler_update(self,t_step):
+        self.time += t_step
         for i in range(self.N):
-            inter_sum = self.x[i]
+            self.forcing[:] = sin(self.frq*self.time)*self.f_amp
+
+        for i in range(self.N):
+            self.x_A = self.x[i]
             for j in range(self.N):
-                inter_sum += self.weights[i,j] * self.x[j]
-            forcing = 0.0
+                self.x_A += self.weights[i,j] * self.x[j]
 
             self.dx[i] = self.osc_dir[i] * self.y[i]
-            self.dy[i] = self.osc_dir[i] * (self.para[0,i] * (self.para[1,i] - inter_sum**2) * self.dx[i]
-                          - self.para[2,i] * inter_sum + forcing)
+            self.dy[i] = self.osc_dir[i] * (self.a[i] * (self.p_2[i] - self.x_A**2) * self.dx[i]
+                          - (self.w_2[i] * self.x_A) + self.forcing[i])
 
 
         self.y_last[:] = self.y
@@ -71,7 +81,7 @@ class GeneratorVdpNet(CPG):
         self.y += self.dy*t_step
         self.set_phase_offset()
 
-        self.radius = np.sqrt(np.power(self.x,2)+np.power(self.y,2))
+        self.radius = np.sqrt(np.power(self.x,2) + np.power(self.y,2))
         self.phase = np.arctan2(self.y,self.x) + self.phase_off
 
     def set_state(self,n,x,y):
@@ -83,11 +93,17 @@ class GeneratorVdpNet(CPG):
 
     def wheel_output(self):
         # return x component and current phase
-        ext = self.radius*0.1 +0.2#+ self.x * 0.1
-        return self.phase.tolist(),[min(1.11,max(0.0,p)) for p in ext]
+        # TODO
+        ext = self.x * 0.1 + 0.5
+        rot = self.phase * 0.5 / self.n_arc
+        return rot.tolist(),[min(1.11,max(0.0,p)) for p in ext]
 
     def graph_output(self):
         return self.x
+
+    def perturbation(self, n, sigmas):
+        for i in range(4):
+            self.set_state(i, sigmas[i] * i, -sigmas[i] * i)
 
     def set_phase_offset(self):
     # run anytime states are updated to track quadrant changes for smooth arctan

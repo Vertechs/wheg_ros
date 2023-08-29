@@ -36,68 +36,65 @@ gen2.gain_amp = 2.0
 
 gen2.target_amps = np.array([0.5, 0.5, 0.5, 0.5])
 gen2.target_offs = np.zeros(4)
-gen2.own_freq[:] = 1.0
+gen2.freq[:] = 1.0
 
 gen2.weights = 1.0*(np.ones((4, 4)) - np.eye(4))
 gen2.biases[:] = gen2.b_q_off
 
 gen2.perturbation(0,[.01, .01, .01])
-gen2.diff_input(100.0, 0.0, gen2.wheel_rad) # mm/s, rad/s, mm
 
 
 ## Modified hopf oscillators
 gen3 = wheg_utils.generators.mod_hopf_net.GeneratorHopf(4,robot)
 
 gen3.freq_tar = np.ones(gen3.N)
-gen3.weights_converge = np.vstack([np.ones((1,4))*10,np.ones((1,4))*50])
+gen3.weights_converge = np.vstack([np.ones((1,4))*10,np.ones((1,4))*10])
 gen3.amplitudes = np.ones(gen3.N)
 
 # gen3.weights_inter = np.array([[0,-1,1,-1],
 #                                [-1,0,-1,1],
 #                                [-1,1,0,-1],
 #                                [1,-1,-1,0]])
-gen3.weights_inter = 2 * (np.ones((gen3.N,gen3.N)) - np.eye(gen3.N))
-gen3.bias_inter = gen3.b_q_off
+gen3.weights_inter = 2.0 * (np.ones((gen3.N,gen3.N)) - np.eye(gen3.N))
+gen3.bias_inter[:] = gen3.b_q_off
 
 for i in range(4):
     gen3.set_state(i,[0.2,0.1])
 
-gen3.diff_input(100.0,0.0,gen3.wheel_rad)
-
-
-## Van der pol coupled oscillators
-gen4 = wheg_utils.generators.van_der_pol_net.GeneratorVdpNet(4,robot)
-
-A = np.array([1.0,2.0,2])[np.newaxis]
-gen4.para = np.tile(A.T,gen4.N)
-
-gen4.weights = np.array([[0,-1,1,-1],
-                       [-1,0,-1,1],
-                       [-1,1,0,-1],
-                       [1,-1,-1,0]]) * 0.2
-
-
-for i in range(4):
-    gen4.set_state(i,0.01,0.01)
 
 ## Modified hopf oscillators
 gen5 = wheg_utils.generators.mod_hopf_turbo.GeneratorHopfMod(4, robot)
 
-gen5.freq_tar = np.ones(gen3.N)
-gen5.weights_converge = np.vstack([np.ones((1, 4)) * 10, np.ones((1, 4)) * 10])
-gen5.amplitudes = np.ones(gen3.N)
+gen5.freq_tar = np.ones(gen5.N)
+gen5.weights_converge = np.vstack([np.ones((1, 4)) * 50, np.ones((1, 4)) * 50])
+gen5.amplitudes = np.ones(gen5.N)
 
 # gen3.weights_inter = np.array([[0,-1,1,-1],
 #                                [-1,0,-1,1],
 #                                [-1,1,0,-1],
 #                                [1,-1,-1,0]])
-gen5.weights_inter = 2 * (np.ones((gen3.N, gen3.N)) - np.eye(gen3.N))
+gen5.weights_inter = 2 * (np.ones((gen5.N, gen5.N)) - np.eye(gen3.N))
 gen5.bias_inter = gen5.b_q_off
 
 for i in range(4):
-    gen5.set_state(i, [0.2, 0.1])
+    gen5.set_state(i, [0.01*i, 0.01*i])
 
-gen5.diff_input(100.0, 0.0, gen5.wheel_rad * 1.5)
+
+## Van der pol coupled oscillators
+gen4 = wheg_utils.generators.van_der_pol_net.GeneratorVdpNet(4,robot)
+
+#A = np.array([1.0,2.0,2])[np.newaxis]
+#gen4.set_parameters(np.tile(A.T,gen4.N))
+gen4.a[:] = np.ones(4) * 1.5
+gen4.p_2[:] = np.ones(4) * 2.0
+gen4.w_2[:] = np.ones(4) * 20.0
+
+gen4.weights[:] = gen4.w_walk
+
+for i in range(4):
+    gen4.set_state(i,0.01*i,0.01*i)
+
+
 
 
 ## Generating and graphing CPG outputs
@@ -111,16 +108,21 @@ y = []
 for i in range(8):
     y.append(np.zeros((4,max_iter)))
 
-fig = plt.figure(figsize=(18,7))
+fig = plt.figure(figsize=(18,10))
 axs = []
 for i in range(8):
     axs.append(fig.add_subplot(421+i))
 
-titles = ['K phs','K ext','H phs','H ext','V phs','V ext','Mh','Mh ext']
+titles = ['Kuramoto','Hopf','Modified Hopf','Van Der Pol']
+subtitles = ['Phase','Extension']
 plt.ion()
 
 px = np.zeros((max_iter,4))
 py = np.zeros((max_iter,4))
+
+gen2.diff_input(100.0, 0.0, gen2.wheel_rad) # mm/s, rad/s, mm
+gen3.diff_input(100.0, 0.0, gen3.wheel_rad)
+gen5.diff_input(100.0, 0.0, gen5.wheel_rad)
 
 for t in range(max_iter):
     #gen1.euler_update(t_step)
@@ -129,19 +131,19 @@ for t in range(max_iter):
     gen4.euler_update(t_step)
     gen5.euler_update(t_step)
 
-    y[0][:,t] = gen2.wheel_output()[0]
+    y[0][:,t] = gen2.wheel_output()[0] #gen2.freq #
     y[1][:,t] = gen2.wheel_output()[1]
-    y[2][:,t] = gen3.wheel_output()[0]# gen3.freq #
+    y[2][:,t] = gen3.wheel_output()[0] #gen3.freq #
     y[3][:,t] = gen3.wheel_output()[1]
-    y[4][:,t] = gen4.wheel_output()[0]
-    y[5][:,t] = gen4.wheel_output()[1]
-    y[6][:,t] = gen5.wheel_output()[0]
-    y[7][:,t] = gen5.wheel_output()[1]
+    y[4][:,t] = gen5.wheel_output()[0]
+    y[5][:,t] = gen5.wheel_output()[1]
+    y[6][:,t] = gen4.wheel_output()[0]
+    y[7][:,t] = gen4.wheel_output()[1]
 
-    px[t] = gen3.state[0,:]
-    py[t] = gen3.state[1,:]
-    # px[t] = gen4.x
-    # py[t] = gen4.y
+    # px[t] = gen3.state[0,:]
+    # py[t] = gen3.state[1,:]
+    px[t] = gen4.x
+    py[t] = gen4.y
     # px[t] = gen5.state[0,:]
     # py[t] = gen5.state[1,:]
 
@@ -153,22 +155,30 @@ for t in range(max_iter):
         pass
 
     if t == int(10/t_step):
-        gen2.diff_input(100.0,0.0,gen2.wheel_rad * 1.5)
-        gen3.diff_input(100.0,0.0,gen3.wheel_rad * 1.5)
+        gen2.diff_input(100.0, 0.0, gen2.wheel_rad * 1.5)
+        gen3.diff_input(100.0, 0.0, gen3.wheel_rad * 1.5)
+        gen5.diff_input(100.0, 0.0, gen3.wheel_rad * 1.5)
+
+        # print(gen3.amplitudes, gen3.freq_tar)
+        # print(gen5.amplitudes, gen5.freq_tar)
+        # print(gen2.target_offs, gen2.freq_tar)
 
     if t == int(20/t_step):
         gen2.diff_input(0.0,0.1,gen2.wheel_rad * 1.5)
         gen3.diff_input(0.0,0.1,gen3.wheel_rad * 1.5)
-        #gen4.diff_input(10.0,0.1,gen4.wheel_rad * 1.5)
+        gen5.diff_input(0.0,0.1,gen4.wheel_rad * 1.5)
 
-    if t == int(32/t_step):
-        gen2.biases[:] = gen2.b_q_off
-        gen2.diff_input(20.0,0.0,gen2.wheel_rad)
-        gen3.diff_input(20.0,0.0,gen3.wheel_rad)
+    if t == int(33/t_step):
+        #gen2.biases[:] = gen2.b_q_off
+        gen2.diff_input(0.0,0.0,gen2.wheel_rad)
+        gen3.diff_input(0.0,0.0,gen3.wheel_rad)
+        gen5.diff_input(0.0,0.0,gen5.wheel_rad)
 
 for i in range(8):
+    if i%2 == 1:
+        axs[i].set_ylim([0,1.25])
     axs[i].plot(x,y[i].T)
-    axs[i].set_title(titles[i])
+    axs[i].set_title(titles[i//2]+' '+subtitles[i%2])
     axs[i].legend(['0','1','2','3'])
 
 plt.figure(2)

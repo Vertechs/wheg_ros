@@ -177,11 +177,17 @@ def get_config_A():
     robcfg.modules[3].set_ratios()
     robcfg.modules[3].n_arc = 5
     
-    para = [5, 15.0, 45.521, 30.0, 65.0, 62.337, 8.0, np.deg2rad(58.7)]
+    para = [5, 15.0, 49.021, 26.5, 65.0, 62.337, 8.0, np.deg2rad(59.4)]
+    para2 = [5, 15.0, 45.521, 30.0, 65.0, 60.877, 8.0, np.deg2rad(58.7)]
     
     # set mechanical parameters for all wheels
     for mod in robcfg.modules:
         mod.four_bar.set_parameter_list(para)
         mod.ext_phase_diff = np.deg2rad(63.7)
         mod.radius = mod.four_bar.outHubRadius
+
+    # current prototype has an older wheel on back left module
+    robcfg.modules[3].four_bar.set_parameter_list(para2)
+    robcfg.modules[3].ext_phase_diff = np.deg2rad(63.7)
+
     return robcfg

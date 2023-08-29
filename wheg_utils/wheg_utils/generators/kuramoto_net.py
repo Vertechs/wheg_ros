@@ -13,7 +13,7 @@ class GeneratorKuramoto(CPG):
         self.phi = np.zeros(n)
         self.amp = np.zeros(n)
         self.off = np.zeros(n)
-        self.own_freq = np.ones(n)
+        self.freq = np.ones(n)
 
         # init dt state vectors
         self.d_amp = np.zeros(n)
@@ -23,18 +23,14 @@ class GeneratorKuramoto(CPG):
         # reference weight matrices to interpolate between
         self.w_full = np.ones((n, n)) - np.diag(np.ones((1, n)))
         self.w_half = np.ones((n, n)) - np.diag(np.ones((1, n)))
-        self.b_walk = np.array([[0 ,2 ,1 ,3],
-                                 [-2,0 ,-1,1],
-                                 [-1,1 ,0 ,2],
-                                 [-1,-1,-2,0]]) * (np.pi/4)
         self.b_q_off = np.array([[0 ,1 ,2 ,3],
                                  [-1,0 ,1, 1],
                                  [-2,-1 ,0 ,1],
-                                 [-1,-2,-1,0]]) * (np.pi/4)
-        self.b_turn_ccw = np.array([[0 ,1 ,0 ,1],
-                                    [-1,0 ,1,0],
-                                    [0,-1 ,0 ,1],
-                                    [-1,0,-1,0]])
+                                 [-3,-2,-1,0]]) * (np.pi/2)
+        self.b_turn_ccw = np.array([[0,-1,0,-1],
+                                    [1,0,-1,0],
+                                    [0,1,0,-1],
+                                    [1,0,1,0]])
         self.freq_ccw = np.array([-1, 1, -1, 1])  # wheel directions for ccw turning
 
         # relational parameters and rates of change
@@ -83,11 +79,11 @@ class GeneratorKuramoto(CPG):
         for i in range(self.N):
             # FREQUENCY UPDATE
             #dd_freq = (0.25 * self.freq_gain * (self.freq_tar[i] - self.own_freq[i]) - self.d_freq[i]) * self.freq_gain
-            self.d_freq[i] = self.freq_gain * (self.freq_tar[i] - self.own_freq[i]) #+= dd_freq * time_step #
-            self.own_freq[i] += self.d_freq[i] * time_step
+            self.d_freq[i] = self.freq_gain * (self.freq_tar[i] - self.freq[i]) #+= dd_freq * time_step #
+            self.freq[i] += self.d_freq[i] * time_step
 
             # PHI UPDATE // get (delta_phase / dt)
-            delphi = self.own_freq[i]
+            delphi = self.freq[i]
             for j in range(self.N):
                 if j != i: # no self weights
                     inner = self.phi[j] - self.phi[i] - self.biases[i,j]
@@ -136,8 +132,8 @@ class GeneratorKuramoto(CPG):
     def wheel_output(self):
         # self.ext_out = self.off + self.amp * np.sin(self.phi)
         # self.rot_out = self.phi / self.n_arc
-        self.ext_out = self.off - np.abs(self.amp * np.sin(self.phi))
-        self.rot_out = 2 * self.phi / self.n_arc
+        self.ext_out = self.off - np.abs(self.amp * np.sin(0.5*self.phi))
+        self.rot_out = self.phi / self.n_arc
         return self.rot_out.tolist(),[max(0.0,s) for s in self.ext_out]
 
     def wheel_feedback(self,rot,ext):
@@ -154,7 +150,7 @@ class GeneratorKuramoto(CPG):
         self.freq_tar[:] = ((v / self.wheel_rad) + self.freq_ccw * differential)
         #print('freq:',self.freq_tar)
         # phase biases change over time to induce differential motion
-        self.d_biases = self.b_turn_ccw * differential * 2
+        self.d_biases = self.b_turn_ccw * differential *-2.0 # *-2.0
 
         # get phase difference from requested ride height, only calculate if height changes
         # *** currently assumes wheels are all the same to lower computation time ***
@@ -166,8 +162,8 @@ class GeneratorKuramoto(CPG):
             # phase difference sent to control is relative to completely closed position
             ph, pb = self.wheels[0].calc_phase_diffs(h)
             self.target_offs[:] = self.wheels[0].p_closed - ph # desired radius
-            print('ph diffs : ',ph,pb)
-            print(self.wheels[0].p_closed)
+            #print('ph diffs : ',ph,pb)
+            #print(self.wheels[0].p_closed)
             self.target_amps[:] = ph - pb  # oscillation amplitudes
 
 
