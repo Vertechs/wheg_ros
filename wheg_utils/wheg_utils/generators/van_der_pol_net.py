@@ -95,7 +95,7 @@ class GeneratorVdpNet(CPG):
 
     def wheel_output(self):
         # normalize x output and use to control extension through the swing
-        ext = self.ext_off - self.ext_amp * self.x / (self.p_2)
+        ext = self.ext_off - self.ext_amp * np.abs(self.x) / (self.p_2)
         rot = self.phase * 2.0 / self.n_arc
         return rot.tolist(),[min(1.11,max(0.0,p)) for p in ext]
 

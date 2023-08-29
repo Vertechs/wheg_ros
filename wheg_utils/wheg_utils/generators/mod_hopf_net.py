@@ -29,12 +29,12 @@ class GeneratorHopf(CPG):
         self.b_q_off = np.array([[0 ,1 ,2 ,3],
                                  [-1, 0 ,1, 2],
                                  [-2,-1 ,0 ,1],
-                                 [-3,-2,-1,0]]) * (np.pi/2)
+                                 [-3,-2,-1,0]]) * (np.pi/4)
                                 # ^ not -1, bias matrix should be skew symmetric
         self.b_trot = np.array([[0, 1, 1, 1],
                                 [-1, 0, 0, -1],
                                 [-1, 0, 0, -1],
-                                [0, 1, 1, 0]]) * (np.pi / 2)
+                                [0, 1, 1, 0]]) * (np.pi / 4)
         self.b_turn_ccw = np.array([[0,-1,0,-1],
                                     [1,0,-1,0],
                                     [0,1,0,-1],
@@ -148,10 +148,10 @@ class GeneratorHopf(CPG):
 
     def wheel_output(self):
         # return current phase and extension
-        # self.ext_out = (np.sqrt(self.radius_2)-1.0) - np.abs((self.state[0,:]) * self.ext_amp)
-        # self.rot_out = self.phase/self.n_arc
-        self.ext_out = (np.sqrt(self.radius_2)-1.0) - self.ext_amp * (self.state[0, :] * 0.5)
-        self.rot_out = self.phase / self.n_arc
+        self.ext_out = (np.sqrt(self.radius_2)-1.0) - np.abs((self.state[0,:]) *0.5 * self.ext_amp)
+        self.rot_out = 2*self.phase/self.n_arc
+        # self.ext_out = (np.sqrt(self.radius_2)-1.0) - self.ext_amp * (self.state[0, :] * 0.5)
+        # self.rot_out = self.phase / self.n_arc
         return self.rot_out.tolist(),[max(e,0.0) for e in self.ext_out]
 
     def perturbation(self, n, sigmas):
@@ -196,7 +196,8 @@ class GeneratorHopf(CPG):
 
     def diff_input(self,v,w,h):
         # implementing a pseudo-differential drive controller
-
+        v = v*0.5
+        w = w*0.5
         # wheel speed ~= oscillator frequency, get from diff drive kinematics
         rad = min(self.wheel_rad,h)
         differential = (w * self.wheel_dist / self.wheel_rad)

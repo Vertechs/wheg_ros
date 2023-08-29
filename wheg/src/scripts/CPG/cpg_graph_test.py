@@ -120,10 +120,10 @@ plt.ion()
 px = np.zeros((max_iter,4))
 py = np.zeros((max_iter,4))
 
-gen2.diff_input(100.0, 0.0, gen2.wheel_rad) # mm/s, rad/s, mm
-gen3.diff_input(100.0, 0.0, gen3.wheel_rad)
-gen5.diff_input(100.0, 0.0, gen5.wheel_rad)
-gen4.diff_input(10,0.0,gen5.wheel_rad*1.5)
+gen2.diff_input(200.0, 0.0, gen2.wheel_rad) # mm/s, rad/s, mm
+gen3.diff_input(200.0, 0.0, gen3.wheel_rad)
+gen5.diff_input(200.0, 0.0, gen5.wheel_rad)
+gen4.diff_input(200.0, 0.0, gen5.wheel_rad)
 
 for t in range(max_iter):
     #gen1.euler_update(t_step)
@@ -156,18 +156,19 @@ for t in range(max_iter):
         pass
 
     if t == int(10/t_step):
-        gen2.diff_input(100.0, 0.0, gen2.wheel_rad * 1.5)
-        gen3.diff_input(100.0, 0.0, gen3.wheel_rad * 1.5)
-        gen5.diff_input(100.0, 0.0, gen3.wheel_rad * 1.5)
+        gen2.diff_input(200.0, 0.0, gen2.wheel_rad * 1.5)
+        gen3.diff_input(200.0, 0.0, gen3.wheel_rad * 1.5)
+        gen5.diff_input(200.0, 0.0, gen3.wheel_rad * 1.5)
+        gen4.diff_input(200.0, 0.0, gen3.wheel_rad * 1.5)
 
         # print(gen3.amplitudes, gen3.freq_tar)
         # print(gen5.amplitudes, gen5.freq_tar)
         # print(gen2.target_offs, gen2.freq_tar)
 
     if t == int(20/t_step):
-        gen2.diff_input(0.0,0.1,gen2.wheel_rad * 1.5)
-        gen3.diff_input(0.0,0.1,gen3.wheel_rad * 1.5)
-        gen5.diff_input(0.0,0.1,gen4.wheel_rad * 1.5)
+        gen2.diff_input(0.0,0.2,gen2.wheel_rad * 1.5)
+        gen3.diff_input(0.0,0.2,gen3.wheel_rad * 1.5)
+        gen5.diff_input(0.0,0.2,gen4.wheel_rad * 1.5)
 
     if t == int(33/t_step):
         #gen2.biases[:] = gen2.b_q_off
@@ -179,7 +180,7 @@ for i in range(8):
     if i%2 == 1:
         axs[i].set_ylim([0,1.25])
     else:
-        axs[i].set_ylim([0,10])
+        axs[i].set_ylim([0,30])
     axs[i].plot(x,y[i].T)
     axs[i].set_title(titles[i//2]+' '+subtitles[i%2])
     axs[i].legend(['0','1','2','3'])

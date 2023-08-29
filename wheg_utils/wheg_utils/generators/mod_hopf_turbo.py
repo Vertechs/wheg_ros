@@ -84,12 +84,13 @@ class GeneratorHopfMod(CPG):
     def R_matrix(self, theta):
         return np.array([[cos(theta), -sin(theta)], [sin(theta), cos(theta)]])
 
-    def amp_ph(self,phi,i):
+    def amp_ph_IK(self,phi,i):
         px = self.height * sin(phi/self.n_arc)
         ph = self.wheels[i].calc_IK_online(px,self.height)
         return ph+1.0 # encode in amplitude with 1.0 offset to maintain limit cycle
 
-        # return (self.amplitudes[i]-1) * (cos(0.5*phi/self.N) / self.ext_amp[i]) +1
+    def amp_ph(self,phi,i):
+        return (self.amplitudes[i]-1) * (cos(0.5*phi/self.N) / self.ext_amp[i]) +1
 
     def euler_update(self, t_step):
         # phase offset integrating
@@ -114,7 +115,7 @@ class GeneratorHopfMod(CPG):
 
             # orbit dynamics
             # dx/dt = a*(u-r^2)*x - w*y
-            amp = self.amp_ph(phi,i)
+            amp = self.amp_ph_IK(phi,i)
             self.dstate[0, i] = (
                         self.weights_converge[0, i] * (amp**2 - self.radius_2[i]) * self.state[0, i]
                         - self.freq[i] * self.state[1, i] + self.inter_sum[0] + self.feedback[0, i])
