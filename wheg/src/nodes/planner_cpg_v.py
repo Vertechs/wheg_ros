@@ -5,7 +5,7 @@ import time
 import numpy as np
 
 # local packages with wheg and cpg classes
-import wheg_utils.generators.kuramoto_net
+import wheg_utils.generators.van_der_pol_net
 from wheg_utils import robot_config
 
 robot = robot_config.get_config_A()
@@ -26,13 +26,14 @@ class Generator:
         self.n_whl = n_whl
 
         # "walking" gate, all wheel phases one quarter turn offset
-        self.cpg.weights = np.ones((4, 4)) - np.eye(4)
-        self.cpg.biases = self.cpg.b_q_off
+        self.cpg.a[:] = np.ones(4) * 1.5
+        self.cpg.p_2[:] = np.ones(4) * 2.0
+        self.cpg.w_2[:] = np.ones(4) * 4.0
         
-        self.cpg.target_amps = np.array([0.5, 0.5, 0.5, 0.5])
-        self.cpg.target_offs = np.zeros(4)
-        self.cpg.diff_input(1.0,0.0,self.cpg.wheel_rad)
-        #print(self.cpg.target_offs,self.cpg.target_amp_norm)
+        self.cpg.weights[:] = self.cpg.w_walk * 0.2
+        
+        for i in range(4):
+            self.cpg.set_state(i,0.01*i,0.01*i)
         
         #=== ROS Setup ===#
         rospy.init_node("central_pattern_generator")
@@ -41,10 +42,11 @@ class Generator:
         # #TODO balance cpg update rate with sending rate to controllers
         self.cpg_clock = rospy.Rate(CPG_RATE)
         self.send_ratio = 1 # after how many internal updates to send pos command
+        self.print_ratio = 100
         
         self.mode_sub = rospy.Subscriber("switch_mode", ros_msg.UInt8MultiArray, self.mode_callback)
         self.vector_sub = rospy.Subscriber("planner_vector", ros_msg.Float32MultiArray, self.vector_callback)
-        self.estimate_sub = rospy.Subscriber("walk_pos_est", ros_msg.Float32MultiArray, self.estimate_callback)
+        #self.estimate_sub = rospy.Subscriber("walk_pos_est", ros_msg.Float32MultiArray, self.estimate_callback)
         
         self.target_pub = rospy.Publisher("walk_pos_cmd", ros_msg.Float32MultiArray, queue_size = 2)
         
@@ -68,13 +70,15 @@ class Generator:
         if msg.data[0] != 2:
             if self.enabled:
                 rospy.loginfo("Disabled, reset to zero")
-                self.cpg.diff_input(0.1,0.0,self.cpg.wheel_rad)
+                self.cpg.diff_input(10.0,0.0,self.cpg.wheel_rad)
                 self.cpg.reset_oscillators()
+                self.iter_counter = 0
                 self.enabled = False
         elif msg.data[0] == 2:
             if not self.enabled:
                 rospy.loginfo("Updates enabled")
                 self.enabled = True
+    
     
     def vector_callback(self,msg):
         v,w,h,ax,ay = msg.data # x+ vel, z angular vel, ride height and angle
@@ -103,14 +107,15 @@ class Generator:
                 t1 = time.monotonic_ns()
                 
                 # send position commands
-                if self.iter_counter >= self.send_ratio:
-                    self.iter_counter = 0
+                if self.iter_counter % self.send_ratio == 0:
                     self.target_pub.publish(self.target_message)
                     
                 t2 = time.monotonic_ns()
                 
-                rospy.loginfo([(t1-t0)//1000,(t2-t1)//1000])
-                rospy.loginfo([round(a,2) for a in self.target_message.data])
+                # print loop time and current commands
+                if self.iter_counter % self.print_ratio == 0:
+                    rospy.loginfo([(t1-t0)//1000,(t2-t1)//1000]
+                                    + [round(a,2) for a in self.target_message.data])
             
             self.iter_counter += 1
             

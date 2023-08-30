@@ -87,7 +87,7 @@ gen4 = wheg_utils.generators.van_der_pol_net.GeneratorVdpNet(4,robot)
 #gen4.set_parameters(np.tile(A.T,gen4.N))
 gen4.a[:] = np.ones(4) * 1.5
 gen4.p_2[:] = np.ones(4) * 2.0
-gen4.w_2[:] = np.ones(4) * 2.5
+gen4.w_2[:] = np.ones(4) * 4.0
 
 gen4.weights[:] = gen4.w_walk * 0.2
 

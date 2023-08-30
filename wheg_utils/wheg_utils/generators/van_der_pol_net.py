@@ -116,6 +116,7 @@ class GeneratorVdpNet(CPG):
                     self.phase_off[i] -= 2 * pi
 
     def diff_input(self,v : float, w : float, h : float):
+        # Frequency currently hardcoded, assigning parametrically can cause instability
         if w > 0:
             self.osc_dir = [1,-1,1,-1]
         # get phase difference from requested ride height, only calculate if height changes
@@ -128,9 +129,9 @@ class GeneratorVdpNet(CPG):
             ph, pb = self.wheels[0].calc_phase_diffs(h)
 
             # print('ph diffs : ', ph, pb)
-            self.ext_amp[:] = abs(ph - pb) * 0.5  # oscillation amplitudes
+            self.ext_amp[:] = abs(ph - pb)  # oscillation amplitudes
             self.ext_off[:] = (self.wheels[0].p_closed - ph)  # desired radius
-        print(self.ext_amp,self.ext_off)
+        #print(self.ext_amp,self.ext_off)
 
     def reset_oscillators(self):
          # Dynamic variables
@@ -156,3 +157,6 @@ class GeneratorVdpNet(CPG):
         # phase
         self.phase_off = np.zeros(self.N)
         self.y_last = np.zeros(self.N)
+        
+        for i in range(4):
+            self.set_state(i,0.01*i,0.01*i)
