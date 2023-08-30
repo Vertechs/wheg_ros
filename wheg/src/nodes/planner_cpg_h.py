@@ -10,7 +10,7 @@ from wheg_utils import robot_config
 
 robot = robot_config.get_config_A()
 
-CPG_RATE = 50
+CPG_RATE = 30
 
 # wheel biases for differential drive and ride height calcs
 WHEEL_DIR = [1,-1,1,-1]
@@ -44,7 +44,7 @@ class Generator:
         # #TODO balance cpg update rate with sending rate to controllers
         self.cpg_clock = rospy.Rate(CPG_RATE)
         self.send_ratio = 1 # after how many internal updates to send pos command
-        self.print_ratio = 100
+        self.print_ratio = 60
         
         self.mode_sub = rospy.Subscriber("switch_mode", ros_msg.UInt8MultiArray, self.mode_callback)
         self.vector_sub = rospy.Subscriber("planner_vector", ros_msg.Float32MultiArray, self.vector_callback)

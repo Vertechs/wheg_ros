@@ -6,7 +6,7 @@ import time
 # node that takes user input to switch controller modes and send simple position
 # commands for testing.
 
-CONTROL_MODES = ['disable','run','walk','roll','run_rtr']
+CONTROL_MODES = ['disable','run','walk','roll','run_rtr','rstart','rstop']
 
 class PlannerPassthrough:
     def __init__(self):
@@ -73,6 +73,8 @@ class PlannerPassthrough:
                     print("invalid switch mode")
             
             elif msg[0] == 'g':
+                self.mode_pub.publish('rstart')
+                
                 self.diff.data = [0,0,65,0,0]
                 self.diff_pub.publish(self.diff)
                 self.mode_pub.publish('walk')
@@ -87,19 +89,22 @@ class PlannerPassthrough:
                 
                 self.diff.data = [300,0,100,0,0]
                 self.diff_pub.publish(self.diff)
-                time.sleep(9.5)
+                time.sleep(10)
                 
                 self.diff.data = [300,0,65,0,0]
                 self.diff_pub.publish(self.diff)
                 time.sleep(5)
                 
                 self.mode_pub.publish('disable')
+                self.mode_pub.publish('rstop')
                 time.sleep(1)
                 self.mode_pub.publish('walk')
                 time.sleep(1)
                 self.mode_pub.publish('disable')
                 
             elif msg[0] == 't':
+                self.mode_pub.publish('rstart')
+                
                 self.diff.data = [0,0,65,0,0]
                 self.diff_pub.publish(self.diff)
                 self.mode_pub.publish('walk')
@@ -125,6 +130,7 @@ class PlannerPassthrough:
                 time.sleep(5.0)
                 
                 self.mode_pub.publish('disable')
+                self.mode_pub.publish('rstop')
                 time.sleep(1)
                 self.mode_pub.publish('walk')
                 time.sleep(0.5)

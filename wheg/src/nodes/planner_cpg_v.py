@@ -22,7 +22,7 @@ class Generator:
     def __init__(self,n_whl):
         #=== CPG SETUP ===#
         # init fully connected oscillator network with one for each wheel
-        self.cpg = wheg_utils.generators.kuramoto_net.GeneratorKuramoto(n_whl,robot)
+        self.cpg = wheg_utils.generators.van_der_pol_net.GeneratorVdpNet(4,robot)
         self.n_whl = n_whl
 
         # "walking" gate, all wheel phases one quarter turn offset

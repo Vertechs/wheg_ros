@@ -10,7 +10,7 @@ from wheg_utils import robot_config
 
 robot = robot_config.get_config_A()
 
-CPG_RATE = 100
+CPG_RATE = 70
 
 # wheel biases for differential drive and ride height calcs
 WHEEL_DIR = [1,-1,1,-1]

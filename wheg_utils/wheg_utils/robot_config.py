@@ -159,20 +159,20 @@ def get_config_A():
     robcfg.modules[0].set_ratios()
     robcfg.modules[0].n_arc = 5
     
-    robcfg.modules[1].outer_stages = [(40,14),(39,15)]
-    robcfg.modules[1].inner_stages = [(40,14),(40,15)]
+    robcfg.modules[1].outer_stages = [(40,15),(39,14)] # << odd pulleys
+    robcfg.modules[1].inner_stages = [(40,15),(40,14)] 
     robcfg.modules[1].wheel_stages = [(24+82,24)]
     robcfg.modules[1].set_ratios()
     robcfg.modules[1].n_arc = 5
     
-    robcfg.modules[2].outer_stages = [(40,14),(40,20)]
-    robcfg.modules[2].inner_stages = [(40,14),(40,20)]
+    robcfg.modules[2].outer_stages = [(40,15),(40,20)]
+    robcfg.modules[2].inner_stages = [(40,15),(40,20)]
     robcfg.modules[2].wheel_stages = [(24+82,24)] # S / (R+S) for planetary
     robcfg.modules[2].set_ratios()
     robcfg.modules[2].n_arc = 5
     
-    robcfg.modules[3].outer_stages = [(40,14),(40,14)]
-    robcfg.modules[3].inner_stages = [(40,14),(40,14)]
+    robcfg.modules[3].outer_stages = [(40,15),(40,15)]
+    robcfg.modules[3].inner_stages = [(40,15),(40,15)]
     robcfg.modules[3].wheel_stages = [(32+80,32)] # S / (R+S) for planetary
     robcfg.modules[3].set_ratios()
     robcfg.modules[3].n_arc = 5

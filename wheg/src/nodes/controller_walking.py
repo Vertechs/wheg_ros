@@ -4,6 +4,7 @@ import cantools
 import time
 import numpy as np
 import struct
+import csv
 from std_msgs.msg import Float32MultiArray, UInt8MultiArray
 
 # local package, install as editable
@@ -17,6 +18,8 @@ robot = robot_config.get_config_A()
 
 # populate axis IDs, 10 to 18 by default
 AXIS_ID_LIST = [a for a in range(0xA,0x12)]
+RUN_HZ = 50
+CSV_LENGTH = 500
 
 # convert from radians to rotations for odrive controller
 CIRC = (0.5/np.pi)
@@ -49,6 +52,8 @@ class PController(can.Listener):
         self.rot_hat = [0.0]*(self.n_whl)
         self.ext_hat = [0.0]*(self.n_whl)
         
+        #self.est_array = np.zeros(10000,self.n_ax)
+        
         # feed forward terms
         self.vel_ff = [0]*self.n_ax
         self.trq_ff = [0]*self.n_ax # feed forward must be int, taken as x*10^-3 in odrive
@@ -71,12 +76,20 @@ class PController(can.Listener):
         rospy.init_node("walk_controller")
         # pos sending rate. set point is filtered in odrive, make sure bandwidth in
         # controller_switch is ~0.5x the sending rate
-        self.clock = rospy.Rate(50)
+        self.clock = rospy.Rate(RUN_HZ)
+        
+        self.i_count = 0
+        self.r_count = 0
+        self.f_count = 0
+        self.r_data = np.zeros((CSV_LENGTH,9))
+        self.recording = False
+        self.write = False
         
         # init subscribers
         self.switch_subscriber = rospy.Subscriber("switch_mode", UInt8MultiArray, self.switch_callback)
         self.pos_command_subscriber = rospy.Subscriber("walk_pos_cmd", Float32MultiArray, self.target_callback)
-        self.pos_estimate_publisher = rospy.Publisher("walk_pos_est", Float32MultiArray, queue_size=2)
+        #self.pos_estimate_publisher = rospy.Publisher("motor_pos_est", Float32MultiArray, queue_size=2)
+        #self.estimate_msg = Float32MultiArray
         
         #===Wheg setup===#
         # initialize wheg objects for each wheel module
@@ -115,6 +128,14 @@ class PController(can.Listener):
             if self.enabled:
                 self.enabled = False
                 rospy.loginfo("Walk controller disabled")
+        
+        if len(msg.data) > 2:
+            if msg.data[2] == 1:
+                self.recording = True
+            elif msg.data[2] == 0:
+                if self.recording:
+                    self.write = True
+                self.recording = False
             
     def target_callback(self, msg):
         # set target positions from message data
@@ -135,9 +156,31 @@ class PController(can.Listener):
                 if self.enabled: # check again in case speed check failed
                     self.send_commands()
                 
+                # if self.iter_count % 5 == 0:
+                #     self.send_estimates()
+                
                 # t2 = time.monotonic_ns()
                 # rospy.loginfo("Loop took %d us"%( (t2-t1) // 1000) )
+                
+            if self.recording:
+                if self.i_count % 5 == 0:
+                    self.r_data[self.r_count,0] = time.monotonic()
+                    self.r_data[self.r_count,1:] = self.phi_hat
+                    self.r_count += 1
+                
+            if self.write:
+                rospy.loginfo('Writing to csv')
+                with open('data/run_'+str(self.f_count)+'.csv','w') as f:
+                    w = csv.writer(f)
+                    for i in range(CSV_LENGTH):
+                        w.writerow(self.r_data[i,:])
+                self.f_count += 1
+                self.r_count = 0
+                self.r_data[:] = 0
+                self.write = False
+                
             # must sleep some for subscriber functions to be called
+            self.i_count += 1
             self.clock.sleep()
             
         # exit cleanup, shutdown CAN bus
@@ -159,7 +202,7 @@ class PController(can.Listener):
             self.e = (self.ext_tar[i] * self.ext_ratio[i]) * self.ext_dir[i] 
             self.p = self.rot_tar[i] * self.rot_dir[i] #TODO check ratios??
             self.phi_tar[2*i] = self.outer_ratio[i] * (self.p - 0.0*self.e) * CIRC
-            self.phi_tar[2*i+1] = self.inner_ratio[i] * (self.p + .8*self.e) * CIRC
+            self.phi_tar[2*i+1] = self.inner_ratio[i] * (self.p + 1.0*self.e) * CIRC
             
             #self.trq_ff[2*i:2*i+1] = self.wheg.IK_f(self.phi_hat[..]) #TODO get from IK wheg object
         
@@ -174,13 +217,15 @@ class PController(can.Listener):
 
     def send_estimates(self):
         # inverse control math to get wheel phases and extensions
-        for i in range(self.n_whl):
-            self.h1 = self.phi_hat[2*i] / (self.outer_ratio[i]*CIRC)
-            self.h2 = self.phi_hat[2*i+1] / (self.inner_ratio[i]*CIRC)
-            self.p = (self.h1 + self.h2) * 0.5
-            self.e = (self.h2 - self.h1) * 0.5
-            self.ext_hat = self.e * 2 * self.ext_dir[i] / self.ext_ratio[i]
-            self.rot_hat = self.p * self.rot_dir[i]
+        # for i in range(self.n_whl):
+        #     self.h1 = self.phi_hat[2*i] / (self.outer_ratio[i]*CIRC)
+        #     self.h2 = self.phi_hat[2*i+1] / (self.inner_ratio[i]*CIRC)
+        #     self.p = (self.h1 + self.h2) * 0.5
+        #     self.e = (self.h2 - self.h1) * 0.5
+        #     self.ext_hat = self.e * 2 * self.ext_dir[i] / self.ext_ratio[i]
+        #     self.rot_hat = self.p * self.rot_dir[i]
+        self.estimates.data[:] = self.phi_hat
+        self.pos_estimate_publisher.publish
 
 
 

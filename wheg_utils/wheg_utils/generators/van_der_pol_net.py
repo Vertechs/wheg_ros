@@ -131,3 +131,28 @@ class GeneratorVdpNet(CPG):
             self.ext_amp[:] = abs(ph - pb) * 0.5  # oscillation amplitudes
             self.ext_off[:] = (self.wheels[0].p_closed - ph)  # desired radius
         print(self.ext_amp,self.ext_off)
+
+    def reset_oscillators(self):
+         # Dynamic variables
+        self.x = np.zeros(self.N)
+        self.y = np.zeros(self.N)
+        self.dx = np.zeros(self.N)
+        self.dy = np.zeros(self.N)
+
+        # intermediate variables
+        self.x_A = 0.0
+        self.radius = np.zeros(self.N)
+        self.phase = np.zeros(self.N)
+        self.ext_amp = np.zeros(self.N)
+        self.ext_off = np.zeros(self.N)
+
+        # control variables
+        self.forcing = np.zeros(self.N)
+        self.time = 0.0 # track time for forcing signal
+        self.frq =  0.25
+        self.osc_dir = [-1,-1,-1,-1] # osc naturally moves cw, want ccw
+        self.f_amp = 0.1
+
+        # phase
+        self.phase_off = np.zeros(self.N)
+        self.y_last = np.zeros(self.N)

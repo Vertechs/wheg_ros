@@ -5,6 +5,8 @@ import configparser
 import std_msgs.msg as ros_msg
 import odrive.enums as onum
 import time
+import csv
+import numpy as np
 
 from wheg_utils import robot_config
 
@@ -18,9 +20,10 @@ from wheg_utils import robot_config
 # TODO maybe use parameter server, not sure if fast enough
 # or master slave model for controller nodes
 
-CONTROL_MODES = ['disable','run','walk','roll','run_rtr']
+CONTROL_MODES = ['disable','run','walk','roll','run_rtr','rstart','rstop']
 
 AXIS_ID_LIST = [a for a in range(0x0A,0x12)]
+CSV_LENGTH = 2000
 
 class ControllerSwitch:
     def __init__(self,cfg,can_bus,ax_ids):
@@ -40,12 +43,14 @@ class ControllerSwitch:
         # set up ROS nodes and topics
         rospy.init_node("controller_switch")
         self.ctrl_status_pub = rospy.Publisher("switch_mode", ros_msg.UInt8MultiArray, queue_size = 2)
-        self.drive_status_pub = rospy.Publisher("drv_status", ros_msg.String, queue_size=10)
+        #self.drive_status_pub = rospy.Publisher("drv_status", ros_msg.String, queue_size=10)
         
         self.ctrl_msg = ros_msg.UInt8MultiArray()
         self.drv_msg = ros_msg.String()
         
         self.ctrl_msg.data = [0] # start with motors disabled
+        self.recording = False
+        self.r_msg = 0
         
         # populate list of odrive fibre objects, will be in whatever order 
         # is listed in config.ini
@@ -68,36 +73,65 @@ class ControllerSwitch:
         self.n_ax = len(self.axes)
                 
         # init clock for sending periodic status messages, per 10s
-        self.clock = rospy.Rate(0.1)
+        self.clock = rospy.Rate(10)
+        self.i_count = 0
+        self.r_count = 0 # line count
+        self.f_count = 0 # file count
+        
+        self.r_data = np.zeros((CSV_LENGTH,17))
         
         # planner at end in case get interrupted during setup
         rospy.Subscriber("planner_mode", ros_msg.String, self.planner_callback)
         
         # ros mobile topics for limited remote control
-        rospy.Subscriber("stop_btn", ros_msg.Bool, self.stop_callback)
-        self.stop_btn_val = False
+        #rospy.Subscriber("stop_btn", ros_msg.Bool, self.stop_callback)
+        #self.stop_btn_val = False
         
         rospy.loginfo("Setup complete")
     
     ### callback for messages published from path planning
     # will block for quite a while doing setup, may miss messages?
     def planner_callback(self, msg):
+        # if msg.data == 'rstart':
+            # rospy.loginfo('Recording')
+            # self.r_count = 0
+            # self.recording = True
+            # return
+        
+        # elif msg.data == 'rstop':
+            # self.recording = False
+            # rospy.loginfo('Writing to csv')
+            # with open('data/run_'+str(self.f_count)+'.csv','w') as f:
+            #     w = csv.writer(f)
+            #     for i in range(CSV_LENGTH):
+            #         w.writerow(self.r_data[i,:])
+            # self.f_count += 1
+            # self.r_count = 0
+            
+            # return
+            
+            
+        
         # update control_switch message, assume message is ros_msg.String matching control mode list
         try:
             new_mode = CONTROL_MODES.index(msg.data)
             self.last_mode = self.mode
             self.mode = new_mode
             
-            if new_mode == 4:
+            if new_mode == 5:
+                self.r_msg = 1
+            elif new_mode == 6:
+                self.r_msg = 0
+            elif new_mode == 4:
                 self.can_mode = 1
             else:
                 self.can_mode = 0
             
-            self.ctrl_msg.data = [self.mode,self.can_mode]
         except ValueError:
             # if not in control mode list, dont update and send a warning
             rospy.logwarn("Invalid control mode, falling back to " + CONTROL_MODES[self.mode])
         
+        self.ctrl_msg.data = [self.mode,self.can_mode,self.r_msg]
         # Control nodes should always exit with zero velocity?
         # TODO, pass commanded velcoity and phases to other node?
         
@@ -158,22 +192,40 @@ class ControllerSwitch:
     # main loop only sends periodic status messages to controller nodes
     def main_loop(self):
         while not rospy.is_shutdown():
-            # get battery voltage from first drive
-            self.drv_msg.data = "vbus=%.2f"%self.drives[0].vbus_voltage
-            # get drive errors and append to msg ros_msg.String
-            for i in range(self.n_ax):
-                if self.axes[i].error:
-                    rospy.logwarn("Drive %d error, shutting down"%(i//2))
-                    odrive.utils.dump_errors(self.drives[i//2])
-                    self.shutdown()
-                    quit()
+            if self.i_count % 100 == 0:
+                # get battery voltage from first drive
+                self.drv_msg.data = "vbus=%.2f"%self.drives[0].vbus_voltage
+                # get drive errors and append to msg ros_msg.String
+                for i in range(self.n_ax):
+                    if self.axes[i].error:
+                        rospy.logwarn("Drive %d error, shutting down"%(i//2))
+                        odrive.utils.dump_errors(self.drives[i//2])
+                        self.shutdown()
+                        quit()
+                    
+                rospy.loginfo(self.drv_msg.data)
                 
-            rospy.loginfo(self.drv_msg.data)
-            
-
-            # publish status messages
-            self.ctrl_status_pub.publish(self.ctrl_msg)
-            self.drive_status_pub.publish(self.drv_msg)
+    
+                # publish status messages
+                self.ctrl_status_pub.publish(self.ctrl_msg)
+                #self.drive_status_pub.publish(self.drv_msg)
+                
+            if self.recording:
+                t0 = time.monotonic_ns()
+                self.r_data[self.r_count,0] = time.monotonic()
+                for i in range(8):
+                    self.r_data[self.r_count,i+1] = self.axes[i].encoder.pos_estimate
+                for i in range(8):
+                    self.r_data[self.r_count,i+8] = self.axes[i].motor.current_control.Iq_measured
+                self.r_count += 1
+                if self.r_count > CSV_LENGTH:
+                    rospy.logwarn('data overflow')
+                    self.r_count = 0
+                t1 = time.monotonic_ns()
+                print((t1-t0)//1000)
+                
+                
+            self.i_count += 1
             
             self.clock.sleep()
         
