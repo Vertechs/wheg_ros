@@ -97,7 +97,7 @@ class Generator:
             t0 = time.monotonic_ns()
             if self.enabled:
                 # update oscillator states from estimates
-                #self.cpg.wheel_input(self.rot_hat,self.ext_hat)
+                # self.cpg.wheel_input(self.rot_hat,self.ext_hat)
                 
                 # step oscillators forward and take output
                 self.cpg.euler_update(t_step)

@@ -191,3 +191,35 @@ def get_config_A():
     robcfg.modules[3].ext_phase_diff = np.deg2rad(63.7)
 
     return robcfg
+
+
+def get_config_webots():
+    # definin current prototype configuration
+    robcfg = RobotDefinition(4)
+
+    # odrive serial numbers in order
+    robcfg.drive_sn = ['208839824D4D', '205839844D4D', '209039854D4D', '205239824D4D']
+
+    robcfg.axis_ids = [a for a in range(0x0A, 0x12)]
+
+    robcfg.wheel_base_length = 12.2 * 25.4
+    robcfg.wheel_base_width = 20.2 * 25.4
+    robcfg.wheel_base_offset = (0, 0, 1.25 * 25.4)
+    robcfg.set_centers()
+
+    for mod in robcfg.modules:
+        mod.outer_stages = [(1,1)]
+        mod.inner_stages = [(1, 1)]
+        mod.wheel_stages = [(1, 1)]
+        mod.set_ratios()
+        mod.n_arc = 5
+
+    para = [5, 15.0, 49.021, 26.5, 65.0, 62.337, 8.0, np.deg2rad(59.4)]
+
+    # set mechanical parameters for all wheels
+    for mod in robcfg.modules:
+        mod.four_bar.set_parameter_list(para)
+        mod.ext_phase_diff = np.deg2rad(63.7)
+        mod.radius = mod.four_bar.outHubRadius
+
+    return robcfg
