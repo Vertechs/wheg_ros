@@ -64,6 +64,7 @@ class GeneratorKuramoto(CPG):
         self.n_arc = []
         for i in range(self.N):
             self.wheels.append(WhegFourBar(robot.modules[i].four_bar.get_parameter_list()))
+
         self.wheel_dist = robot.wheel_base_width
         self.n_arc = robot.modules[0].n_arc
         self.wheel_rad = robot.modules[0].radius
@@ -132,8 +133,8 @@ class GeneratorKuramoto(CPG):
     def wheel_output(self):
         # self.ext_out = self.off + self.amp * np.sin(self.phi)
         # self.rot_out = self.phi / self.n_arc
-        self.ext_out = self.off - np.abs(self.amp * np.sin(0.5*self.phi))
-        self.rot_out = self.phi / self.n_arc
+        self.ext_out = self.off - np.abs(self.amp * np.sin(self.phi))
+        self.rot_out = 2.0*self.phi / self.n_arc
         return self.rot_out.tolist(),[max(0.0,s) for s in self.ext_out]
 
     def wheel_feedback(self,rot,ext):
@@ -146,11 +147,12 @@ class GeneratorKuramoto(CPG):
         # implementing a pseudo-differential drive controller
 
         # wheel speed ~= oscillator frequency, get from diff drive kinematics
-        differential = (w * self.wheel_dist / self.wheel_rad)
-        self.freq_tar[:] = ((v / self.wheel_rad) + self.freq_ccw * differential)
-        #print('freq:',self.freq_tar)
+        differential = (w * self.wheel_dist / h)
+        self.freq_tar[:] = 0.5*self.n_arc*((v / h) + self.freq_ccw * differential)
+
+        print('freq:',self.freq_tar)
         # phase biases change over time to induce differential motion
-        self.d_biases = self.b_turn_ccw * differential *-2.0 # *-2.0
+        self.d_biases = self.b_turn_ccw * differential *-2.0 *self.n_arc# *-2.0
 
         # get phase difference from requested ride height, only calculate if height changes
         # *** currently assumes wheels are all the same to lower computation time ***
@@ -165,6 +167,12 @@ class GeneratorKuramoto(CPG):
             #print('ph diffs : ',ph,pb)
             #print(self.wheels[0].p_closed)
             self.target_amps[:] = ph - pb  # oscillation amplitudes
+
+    def set_phase(self,phases):
+        if len(phases) == self.N:
+            self.phi[:] = phases
+        else:
+            print('wrong phases')
 
 
 

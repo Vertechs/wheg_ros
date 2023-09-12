@@ -1,0 +1,345 @@
+#VRML_SIM R2023b utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/Floor.proto"
+EXTERNPROTO "../protos/wheg5.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/UnevenTerrain.proto"
+
+WorldInfo {
+  basicTimeStep 5
+  FPS 200
+  contactProperties [
+    ContactProperties {
+      material1 "arcs"
+      material2 "floor"
+      coulombFriction [
+        0.65
+      ]
+      bounce 0
+    }
+  ]
+}
+Viewpoint {
+  orientation -0.11914078088557725 -0.18662652779476435 0.9751799902855088 4.890004836656139
+  position -0.42154250174075614 4.78074286615116 0.9999934561276914
+}
+TexturedBackground {
+}
+TexturedBackgroundLight {
+}
+Floor {
+  translation 0 0 -1
+  contactMaterial "floor"
+}
+DEF whegs Robot {
+  translation 0 0 0.17
+  children [
+    SliderJoint {
+      jointParameters JointParameters {
+        minStop -0.01
+        maxStop 0.01
+        springConstant 1000
+        dampingConstant 1000
+      }
+      endPoint Solid {
+        children [
+          wheg5 {
+            anchor 0.15 -0.26 -0.03
+            in_motor_name "mi_01"
+            out_motor_name "mo_01"
+            plate_name "whl_xx(3)"
+            hub_name "hub_xx(3)"
+            in_sense_name "si_01"
+            out_sense_name "so_01"
+          }
+        ]
+        name "slider_empty(1)"
+        physics Physics {
+          density -1
+          mass 0.001
+          centerOfMass [
+            0 0 0
+          ]
+          inertiaMatrix [
+            0.1 0.1 0.1
+            0 0 0
+          ]
+        }
+      }
+    }
+    SliderJoint {
+      jointParameters JointParameters {
+        minStop -0.01
+        maxStop 0.01
+        springConstant 1000
+        dampingConstant 1000
+      }
+      endPoint Solid {
+        children [
+          wheg5 {
+            anchor -0.15 0.22 -0.03
+            in_motor_name "mi_02"
+            out_motor_name "mo_02"
+            plate_name "whl_xx(2)"
+            hub_name "hub_xx(2)"
+            in_sense_name "si_02"
+            out_sense_name "so_02"
+          }
+        ]
+        name "slider_empty(2)"
+        physics Physics {
+          density -1
+          mass 0.001
+          centerOfMass [
+            0 0 0
+          ]
+          inertiaMatrix [
+            0.1 0.1 0.1
+            0 0 0
+          ]
+        }
+      }
+    }
+    SliderJoint {
+      jointParameters JointParameters {
+        minStop -0.01
+        maxStop 0.01
+        springConstant 1000
+        dampingConstant 1000
+      }
+      endPoint Solid {
+        children [
+          wheg5 {
+            anchor -0.16 -0.26 -0.03
+            in_motor_name "mi_03"
+            out_motor_name "mo_03"
+            plate_name "whl_xx(1)"
+            hub_name "hub_xx(1)"
+            in_sense_name "si_03"
+            out_sense_name "so_03"
+          }
+        ]
+        name "slider_empty(3)"
+        physics Physics {
+          density -1
+          mass 0.001
+          centerOfMass [
+            0 0 0
+          ]
+          inertiaMatrix [
+            0.1 0.1 0.1
+            0 0 0
+          ]
+        }
+      }
+    }
+    SliderJoint {
+      jointParameters JointParameters {
+        minStop -0.01
+        maxStop 0.01
+        springConstant 1000
+        dampingConstant 1000
+      }
+      endPoint Solid {
+        children [
+          wheg5 {
+            anchor 0.15 0.22 -0.03
+            in_motor_name "mi_00"
+            out_motor_name "mo_00"
+            in_sense_name "si_00"
+            out_sense_name "so_00"
+          }
+        ]
+        name "slider_empty"
+        physics Physics {
+          density -1
+          mass 0.001
+          centerOfMass [
+            0 0 0
+          ]
+          inertiaMatrix [
+            0.1 0.1 0.1
+            0 0 0
+          ]
+        }
+      }
+    }
+    HingeJoint {
+      jointParameters HingeJointParameters {
+        anchor 0.15 0.02 0
+        springConstant 100
+        dampingConstant 100
+      }
+      endPoint Solid {
+        translation -0.155 -0.145 -0.02
+        children [
+          Shape {
+            appearance DEF BoxColor PBRAppearance {
+              baseColor 0.384314 0.627451 0.917647
+              roughness 0.5
+              metalness 0
+            }
+            geometry DEF drive_box_geo Box {
+              size 0.15 0.124 0.068
+            }
+          }
+        ]
+        name "box3"
+        boundingObject USE drive_box_geo
+        physics Physics {
+          density -1
+          mass 0.3
+        }
+      }
+    }
+    HingeJoint {
+      jointParameters HingeJointParameters {
+        anchor 0.15 0.02 0
+        springConstant 100
+        dampingConstant 100
+      }
+      endPoint Solid {
+        translation -0.155 0.145 -0.02
+        children [
+          Shape {
+            appearance USE BoxColor
+            geometry DEF drive_box_geo Box {
+              size 0.15 0.124 0.068
+            }
+          }
+        ]
+        name "box2"
+        boundingObject USE drive_box_geo
+        physics Physics {
+          density -1
+          mass 0.3
+        }
+      }
+    }
+    HingeJoint {
+      jointParameters HingeJointParameters {
+        anchor 0.15 0.02 0
+        springConstant 100
+      }
+      endPoint Solid {
+        translation 0.155 -0.145 -0.02
+        children [
+          Shape {
+            appearance USE BoxColor
+            geometry DEF drive_box_geo Box {
+              size 0.15 0.124 0.068
+            }
+          }
+        ]
+        name "box1"
+        boundingObject USE drive_box_geo
+        physics Physics {
+          density -1
+          mass 0.3
+        }
+      }
+    }
+    HingeJoint {
+      jointParameters HingeJointParameters {
+        anchor 0.15 0.02 0
+        springConstant 100
+      }
+      endPoint Solid {
+        translation 0.155 0.145 -0.02
+        children [
+          Shape {
+            appearance USE BoxColor
+            geometry DEF drive_box_geo Box {
+              size 0.15 0.124 0.068
+            }
+          }
+        ]
+        name "box0"
+        boundingObject USE drive_box_geo
+        physics Physics {
+          density -1
+          mass 0.3
+        }
+      }
+    }
+    Solid {
+      children [
+        DEF frame_geo Group {
+          children [
+            Pose {
+              translation 0.155 0.1185 0
+              rotation 0 0 1 1.5708
+              children [
+                Shape {
+                  appearance DEF FrameColor PBRAppearance {
+                    baseColor 0.972549 0.894118 0.360784
+                    roughness 0.8
+                    metalness 0.2
+                  }
+                  geometry DEF leg-box_geo Box {
+                    size 0.18 0.04 0.02
+                  }
+                }
+              ]
+            }
+            Pose {
+              translation -0.155 0.1185 0
+              rotation 0 0 1 1.5708
+              children [
+                Shape {
+                  appearance USE FrameColor
+                  geometry USE leg-box_geo
+                }
+              ]
+            }
+            Pose {
+              translation -0.155 -0.1185 0
+              rotation 0 0 1 1.5708
+              children [
+                Shape {
+                  appearance USE FrameColor
+                  geometry USE leg-box_geo
+                }
+              ]
+            }
+            Pose {
+              translation 0.155 -0.1185 0
+              rotation 0 0 1 1.5708
+              children [
+                Shape {
+                  appearance USE FrameColor
+                  geometry USE leg-box_geo
+                }
+              ]
+            }
+            Shape {
+              appearance USE FrameColor
+              geometry DEF center_box_geo Box {
+                size 0.4 0.04 0.04
+              }
+            }
+          ]
+        }
+      ]
+      name "frame"
+    }
+  ]
+  boundingObject USE center_box_geo
+  physics Physics {
+    density -1
+    mass 10
+  }
+  controller "wheg_ctrl"
+}
+Robot {
+  name "supervisor"
+  controller "supervisor_controller"
+  supervisor TRUE
+}
+DEF ground UnevenTerrain {
+  translation 1.68 0 -0.21
+  size 5 5 0.5
+  randomSeed 13
+  perlinNOctaves 7
+}
