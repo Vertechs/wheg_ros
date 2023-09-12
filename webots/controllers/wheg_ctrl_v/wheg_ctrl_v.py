@@ -2,7 +2,7 @@ import time
 import numpy as np
 
 # cpg and tweed imports
-from wheg_utils.generators.kuramoto_net import GeneratorKuramoto
+from wheg_utils.generators.van_der_pol_net import GeneratorVdpNet
 from wheg_utils import robot_config
 
 cfg = robot_config.get_config_webots()
@@ -13,7 +13,6 @@ from controller import Robot, Keyboard
 # commands to send: [forward vel, angular vel, height, angle x, angle y]
 CMD_F20 = [50, 0.0, 65, 0.0, 0.0]
 CMD_E20 = [50, 0.0, 100, 0.0, 0.0]
-CMD_C20 = [40, 0.0, 120, 0.0, 0.0]
 CMD_STOP = [0.0, 0.0, 65, 0.0, 0.0]
 CMD_T02 = [0.0, 0.2, 100, 0.0, 0.0]
 CMD_TF = [50, -0.03, 100, 0.0, 0.0]
@@ -22,7 +21,7 @@ class ControllerCPG:
     def __init__(self,n_whl,seed):
         self.robot_sim = Robot()
         self.keyboard = Keyboard()
-        self.cpg = GeneratorKuramoto(n_whl,cfg)
+        self.cpg = GeneratorVdpNet(n_whl,cfg)
         self.n_whl = n_whl
 
         # in milliseconds of simulation time
@@ -35,15 +34,15 @@ class ControllerCPG:
         self.time = 0
         self.command_iter = 0
         
-        # define starting gate, all wheel phases one quarter turn offset
-        self.cpg.weights = np.ones((4, 4)) - np.eye(4)
-        self.cpg.biases = self.cpg.b_q_off #np.zeros((4,4)) #
-        self.cpg.gain_off = 1.5
-        self.cpg.gain_amp = 1.5
-
-        # send first command to initilize. shift states to avoid unstable eq
-        self.cpg.diff_input(0.0, 0.0, self.cpg.wheel_rad)
-        self.cpg.perturbation(0, [0.01, 0.01, 0.01])  # TODO get state from feedback
+        # "walking" gate, all wheel phases one quarter turn offset
+        self.cpg.a[:] = np.ones(4) * 1.5
+        self.cpg.p_2[:] = np.ones(4) * 2.0
+        self.cpg.w_2[:] = np.ones(4) * 5.0
+        
+        self.cpg.weights[:] = self.cpg.w_walk * 0.2
+        
+        for i in range(4):
+            self.cpg.set_state(i,0.01*i,0.01*i)
 
         self.ext_tar = np.zeros(n_whl)
         self.rot_tar = np.zeros(n_whl)
@@ -78,8 +77,9 @@ class ControllerCPG:
         # wheel_offset = (self.rng.rand(4)-0.5)*0.3
         # print('offset to:',wheel_offset)
 
+        wheel_offset = -0.6
         inner_offset = self.cpg.wheels[0].p_closed
-        self.phi_offset = [0.0,inner_offset]*n_whl
+        self.phi_offset = [wheel_offset,wheel_offset+inner_offset]*n_whl
         # for i in range(self.n_whl):
         #     self.phi_offset[2*i] = self.phi_offset[2*i] + wheel_offset[i]
         #     self.phi_offset[2*i+1] = self.phi_offset[2*i+1] + wheel_offset[i]
@@ -119,24 +119,24 @@ class ControllerCPG:
 
         # DEFINE TEST PROGRAM
         # Straight line
-        # if self.time > 1000 and self.command_iter == 0:
-        #     self.command_iter = 1
-        #     self.vector_callback(CMD_F20)
+        if self.time > 1000 and self.command_iter == 0:
+            self.command_iter = 1
+            self.vector_callback(CMD_F20)
 
-        # if self.time > 3000 and self.command_iter == 1:
-        #     self.command_iter = 2
-        #     self.vector_callback(CMD_E20)
+        if self.time > 3000 and self.command_iter == 1:
+            self.command_iter = 2
+            self.vector_callback(CMD_E20)
 
-        # if self.time > 18000 and self.command_iter == 2:
-        #     self.command_iter = 3
-        #     self.vector_callback(CMD_F20)
+        if self.time > 18000 and self.command_iter == 2:
+            self.command_iter = 3
+            self.vector_callback(CMD_F20)
 
-        # if self.time > 23000 and self.command_iter == 3:
-        #     self.command_iter = 4
-        #     self.vector_callback(CMD_STOP)
+        if self.time > 23000 and self.command_iter == 3:
+            self.command_iter = 4
+            self.vector_callback(CMD_STOP)
 
         # DEFINE TEST PROGRAM
-        # # Turning
+        # Turning
         # if self.time > 1000 and self.command_iter == 0:
         #     self.command_iter = 1
         #     self.vector_callback(CMD_E20)
@@ -152,27 +152,6 @@ class ControllerCPG:
         # if self.time > 23000 and self.command_iter == 3:
         #     self.command_iter = 4
         #     self.vector_callback(CMD_STOP)
-
-        # DEFINE TEST PROGRAM
-        # Climbing
-        if self.time > 1000 and self.command_iter == 0:
-            # set after zeroing phase (1 sec)
-            # set offset matrix for synchronized climbing
-            self.biases = np.zeros((4,4))
-            self.command_iter = 1
-            self.vector_callback([50,0.0,80,0,0])
-
-        if self.time > 3000 and self.command_iter == 1:
-            self.command_iter = 2
-            self.vector_callback([40,0.0,120,0,0])
-
-        if self.time > 23000 and self.command_iter == 2:
-            self.command_iter = 3
-            self.vector_callback(CMD_F20)
-
-        if self.time > 27000 and self.command_iter == 3:
-            self.command_iter = 4
-            self.vector_callback(CMD_STOP)
 
 
     def vector_callback(self,msg):
@@ -206,7 +185,7 @@ class ControllerCPG:
 
     def zero_pos(self):
         # generate random offset for each wheel
-        rand_offset = (self.rng.rand(4)-0.5)*0.3
+        rand_offset = (self.rng.rand(4)-0.5)*0.1
         print("random offset to: ",rand_offset)
 
         # set cpg states
@@ -244,6 +223,7 @@ if __name__ == '__main__':
 
     print('starting control loop')
     ctrl.control_loop()
+
 
 
 

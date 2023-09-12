@@ -160,3 +160,8 @@ class GeneratorVdpNet(CPG):
         
         for i in range(4):
             self.set_state(i,0.01*i,0.01*i)
+
+    def set_phase(self,phases):
+        for i in range(self.N):
+            self.x[i] = cos(phases[i]) * self.p_2[i]
+            self.y[i] = sin(phases[i]) * self.p_2[i]

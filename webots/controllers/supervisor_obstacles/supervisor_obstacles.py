@@ -13,21 +13,21 @@ pdata = []
 rdata = []
 tdata = []
 
-test_title = 'vdp_strt'
-test_names     = ['ufrm1','ufrm2','ufrm3','wave1','wave2','wave3']
-ter_tran_list  = [(1.68,0,-0.13),(1.68,0,-0.35),(1.68,0,-0.61),
-                  (1.90,0,-0.10),(1.90,0,-0.20),(1.90,0,-0.29)]
-ter_dim_list   = [50]*3 + [150]*3
-ter_size_list  = [(5,5,0.3),(5,5,0.8),(5,5,1.5),
-                  (5,5,0.3),(5,5,0.6),(5,5,0.9)]
-ter_seed_list  = [13]*3 + [32]*3
+test_title = 'kura_climb'
+test_names = ['1_block','2_pipe','3_rocks','4_piperock']
 
-# get terrain fields
-terrain_node = tracker.getFromDef('ground')
-ter_translate = terrain_node.getField('translation')
-ter_size = terrain_node.getField('size')
-ter_seed = terrain_node.getField('randomSeed')
-ter_dim = terrain_node.getField('xDimension')
+block_pos_T = [(0.85,0.0,0.03), (0.85,0.0,-0.2), (0.85,0.0,-0.2), (0.85,0.0,-0.2)]
+pipeA_pos_T = [(0.69,0,-0.2), (0.69,0,0.03), (0.69,0,-0.2), (0.41,0,0.02)]
+rocks_pos_T = [(0,0,-0.4),(0,0,-0.4),(0,0,0),(0,0,0)]
+
+# get obstacles nodes
+block = tracker.getFromDef('block')
+pipeA = tracker.getFromDef('pipeA')
+rocks = tracker.getFromDef('rocks')
+
+block_pos = block.getField('translation')
+pipeA_pos = pipeA.getField('translation')
+rocks_pos = rocks.getField('translation')
 
 # get robot and keyboard?
 robot_node = tracker.getFromDef('whegs')
@@ -68,10 +68,10 @@ run_n,test_n = check_setting()
 print("current run and test: ",run_n,test_n)
 
 # set settings for current test
-ter_translate.setSFVec3f(list(ter_tran_list[test_n]))
-ter_size.setSFVec3f(list(ter_size_list[test_n]))
-ter_seed.setSFInt32(ter_seed_list[test_n])
-ter_dim.setSFFloat(ter_dim_list[test_n])
+block_pos.setSFVec3f(list(block_pos_T[test_n]))
+pipeA_pos.setSFVec3f(list(pipeA_pos_T[test_n]))
+rocks_pos.setSFVec3f(list(rocks_pos_T[test_n]))
+
 
 sim_time = 0
 while tracker.step(time_step) != -1:
@@ -95,7 +95,7 @@ while tracker.step(time_step) != -1:
 
     #     break
 
-    if sim_time > 25000:
+    if sim_time > 30000:
         # exit after X seconds
         break
         
@@ -110,7 +110,7 @@ if run_n > 12:
     run_n = 0
     test_n += 1
 
-if test_n == 6:
+if test_n == 4:
     tracker.simulationSetMode(tracker.SIMULATION_MODE_PAUSE)
 else:
     print("next run and test: ",run_n,test_n)
