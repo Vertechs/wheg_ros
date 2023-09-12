@@ -29,12 +29,12 @@ class GeneratorHopf(CPG):
         self.b_q_off = np.array([[0 ,1 ,2 ,3],
                                  [-1, 0 ,1, 2],
                                  [-2,-1 ,0 ,1],
-                                 [-3,-2,-1,0]]) * (np.pi/4)
+                                 [-3,-2,-1,0]]) * (np.pi/2)
                                 # ^ not -1, bias matrix should be skew symmetric
         self.b_trot = np.array([[0, 1, 1, 1],
                                 [-1, 0, 0, -1],
                                 [-1, 0, 0, -1],
-                                [0, 1, 1, 0]]) * (np.pi / 4)
+                                [0, 1, 1, 0]]) * (np.pi / 2)
         self.b_turn_ccw = np.array([[0,-1,0,-1],
                                     [1,0,-1,0],
                                     [0,1,0,-1],
@@ -118,7 +118,7 @@ class GeneratorHopf(CPG):
                                  + self.freq[i] * self.state[0, i] + self.inter_sum[1] + self.feedback[0,i])
 
             # apply derivatives by euler method
-            self.x_last[i] = 1.0*self.state[1, i]  # track last state for phase check
+            self.x_last[i] = self.state[1, i]  # track last state for phase check
             self.state[:,i] += self.dstate[:,i] * t_step
 
         # update phase and phase offset
@@ -196,16 +196,16 @@ class GeneratorHopf(CPG):
 
     def diff_input(self,v,w,h):
         # implementing a pseudo-differential drive controller
-        v = v*0.5
-        w = w*0.5
+
         # wheel speed ~= oscillator frequency, get from diff drive kinematics
-        rad = min(self.wheel_rad,h)
-        differential = (w * self.wheel_dist / self.wheel_rad)
-        self.freq_tar[:] = (v / self.wheel_rad)  + self.wheel_dir * differential
+        rad = max(self.wheel_rad,h)
+        differential = (w * self.wheel_dist / rad)
+        self.freq_tar[:] = 0.5*self.n_arc*((v / rad)  + self.wheel_dir * differential)
 
         # phase biases change over time to induce differential steering
-        self.d_biases = self.b_turn_ccw * differential * 2
+        self.d_biases = self.b_turn_ccw * differential * 2 * self.n_arc
 
+        print("osc freq: ", self.freq_tar)
         # get phase difference from requested ride height, only calculate if height changes
         # *** this assumes wheels are all the same to lower computation time ***
         if h != self.height:
@@ -218,3 +218,9 @@ class GeneratorHopf(CPG):
             #print('ph diffs : ', ph, pb)
             self.ext_amp[:] = abs(ph - pb)  # oscillation amplitudes
             self.amplitudes[:] = (self.wheels[0].p_closed - ph) - self.ext_amp + 1.0  # desired radius
+
+    def set_phase(self,phases):
+        for i in range(self.N):
+            self.state[0,i] = cos(phases[i]) * self.amplitudes[i]
+            self.state[1,i] = sin(phases[i]) * self.amplitudes[i]
+            self.phase_off[i] = 0.0

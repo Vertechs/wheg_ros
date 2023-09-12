@@ -87,12 +87,14 @@ gen4 = wheg_utils.generators.van_der_pol_net.GeneratorVdpNet(4,robot)
 #gen4.set_parameters(np.tile(A.T,gen4.N))
 gen4.a[:] = np.ones(4) * 1.5
 gen4.p_2[:] = np.ones(4) * 2.0
-gen4.w_2[:] = np.ones(4) * 4.0
+gen4.w_2[:] = np.ones(4) * 5.0
 
 gen4.weights[:] = gen4.w_walk * 0.2
 
 for i in range(4):
     gen4.set_state(i,0.01*i,0.01*i)
+
+gen4.set_phase((np.random.rand(4)-0.5)*0.1)
 
 
 
@@ -120,10 +122,10 @@ plt.ion()
 px = np.zeros((max_iter,4))
 py = np.zeros((max_iter,4))
 
-gen2.diff_input(200.0, 0.0, gen2.wheel_rad) # mm/s, rad/s, mm
-gen3.diff_input(200.0, 0.0, gen3.wheel_rad)
-gen5.diff_input(200.0, 0.0, gen5.wheel_rad)
-gen4.diff_input(200.0, 0.0, gen5.wheel_rad)
+gen2.diff_input(50.0, 0.0, gen2.wheel_rad) # mm/s, rad/s, mm
+gen3.diff_input(50.0, 0.0, gen3.wheel_rad)
+gen5.diff_input(50.0, 0.0, gen5.wheel_rad)
+gen4.diff_input(50.0, 0.0, gen5.wheel_rad)
 
 for t in range(max_iter):
     #gen1.euler_update(t_step)
@@ -156,10 +158,10 @@ for t in range(max_iter):
         pass
 
     if t == int(10/t_step):
-        gen2.diff_input(200.0, 0.0, gen2.wheel_rad * 1.5)
-        gen3.diff_input(200.0, 0.0, gen3.wheel_rad * 1.5)
-        gen5.diff_input(200.0, 0.0, gen3.wheel_rad * 1.5)
-        gen4.diff_input(200.0, 0.0, gen3.wheel_rad * 1.5)
+        gen2.diff_input(50.0, 0.0, gen2.wheel_rad * 1.5)
+        gen3.diff_input(50.0, 0.0, gen3.wheel_rad * 1.5)
+        gen5.diff_input(50.0, 0.0, gen3.wheel_rad * 1.5)
+        gen4.diff_input(50.0, 0.0, gen3.wheel_rad * 1.5)
 
         # print(gen3.amplitudes, gen3.freq_tar)
         # print(gen5.amplitudes, gen5.freq_tar)
@@ -174,7 +176,7 @@ for t in range(max_iter):
         #gen2.biases[:] = gen2.b_q_off
         gen2.diff_input(0.0,0.0,gen2.wheel_rad)
         gen3.diff_input(0.0,0.0,gen3.wheel_rad)
-        gen5.diff_input(0.0,0.0,gen5.wheel_rad)
+    #     gen5.diff_input(0.0,0.0,gen5.wheel_rad)
 
 for i in range(8):
     if i%2 == 1:
