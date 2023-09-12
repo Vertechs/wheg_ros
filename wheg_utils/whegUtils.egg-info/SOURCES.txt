@@ -15,5 +15,4 @@ wheg_utils/generators/kuramoto_net.py
 wheg_utils/generators/matsuoka_net.py
 wheg_utils/generators/matsuoka_single.py
 wheg_utils/generators/mod_hopf_net.py
-wheg_utils/generators/mod_hopf_net_turbo.py
 wheg_utils/generators/van_der_pol_net.py

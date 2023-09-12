@@ -1,0 +1,708 @@
+#VRML_SIM R2023b utf8
+PROTO wheg5 [
+  # wheel names
+  field SFVec3f anchor 0.13 0.17 0
+  field SFRotation rotation 0 0 1 0
+  field SFString in_motor_name "mi_xx"
+  field SFString out_motor_name "mo_xx"
+  field SFString plate_name "whl_xx"
+  field SFString hub_name "hub_xx"
+  field SFString in_sense_name "si_xx"
+  field SFString out_sense_name "so_xx"
+  
+  # wheg parameters
+  field SFVec3f in-link_offset 0 0.025 0.01   # from origin to hub/link pivot
+  field SFVec3f link-arc_offset 0.01228 0.047 0 # from hub/link pivot to arc/link pivot
+  field SFVec3f arc-whl_offset 0 0.04 0  # offset from original hub/link offset to arc/out pivot
+  
+  field SFVec3f tip_offset 0 0.0609 0 # offset from arc origin
+  
+  field SFFloat tip_height 0.025
+  field SFFloat tip_radius 0.008
+  field SFFloat part_density 200
+  
+  field SFVec3f link_shape 0.003 0.02 0.003
+  field SFVec3f arc_box_shape 0.003 0.04 0.02
+  field SFVec3f arc_box_offset 0 0.03 0
+  
+  field SFFloat out_radius 0.065
+]
+
+{
+  Pose {
+      translation IS anchor
+      rotation IS rotation
+      children [
+      
+      
+      	HingeJoint {
+          jointParameters HingeJointParameters {
+            axis 0 1 0
+          }
+          device [
+            PositionSensor {
+              name IS out_sense_name
+            }
+            RotationalMotor {
+              name IS out_motor_name
+            }
+          ]
+          endPoint DEF wheel_out Solid {
+            rotation 7.523476040783091e-07 -0.7071062506592531 -0.7071073117130438 3.1415967511197196
+            children [
+              DEF wheel_out_geo Group {
+                children [
+                  Pose {
+                    translation 0 0 0.04
+                    children [
+                      Shape {
+                        appearance PBRAppearance {
+                          baseColor 0.4 0.4 0.4
+                          metalness 0.2
+                          roughness 0.2
+                        }
+                        geometry DEF wheel_plate_geo Cylinder {
+                          height 0.005
+                          radius IS out_radius
+                        }
+                      }
+                    ]
+                  }
+                  Pose {
+                    children [
+                      Shape {
+                        appearance PBRAppearance {
+                          baseColor 0.4 0.4 0.4
+                          metalness 0.2
+                          roughness 0.2
+                        }
+                        geometry DEF wheel_plate_geo Cylinder {
+                          height 0.005
+                          radius IS out_radius
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+            name IS plate_name
+            boundingObject USE wheel_out_geo
+            physics Physics {
+              density IS part_density
+            }
+          }
+        }
+      
+      
+        HingeJoint {
+          jointParameters HingeJointParameters {
+            axis 0 1 0
+          }
+          device [
+            PositionSensor {
+              name IS in_sense_name
+            }
+            RotationalMotor {
+              name IS in_motor_name
+            }
+          ]
+          endPoint DEF wheel_in Solid {
+            translation 0 0.01 0
+            rotation -1 0 0 1.5707953071795817
+            children [
+              Pose {
+                rotation 0 0 1 -1.2566853071795858
+                children [
+                  HingeJoint {
+                    jointParameters HingeJointParameters {
+                      axis 0 0 1
+                      anchor IS in-link_offset
+                    }
+                    endPoint DEF link_sol Solid {
+                      translation IS in-link_offset
+                      children [
+                        DEF link_geo_pos Pose {
+                          translation 0.00676148 0.0181882 0
+                          rotation 0 0 1 -0.41888530717958616
+                          children [
+                            Shape {
+                              appearance PBRAppearance {
+                                baseColor 1 0.4 0.5
+                                metalness 0
+                              }
+                              geometry DEF link_geo Box {
+                                size IS link_shape
+                              }
+                            }
+                          ]
+                          translationStep 0.001
+                          rotationStep 0.0261799
+                        }
+                        HingeJoint {
+                          jointParameters HingeJointParameters {
+                            axis 0 0 1
+                            anchor IS link-arc_offset
+                          }
+                          endPoint DEF arc_sol Solid {
+                            translation IS arc-whl_offset
+                            children [
+                              Transform {
+                                rotation 0.70710528118436 0.707108281185553 3.3905113482557537e-09 3.14159
+                                children [
+                                  Shape {
+                                    appearance PBRAppearance {
+                                      baseColor 0.4 0.4 0.4
+                                      metalness 0.2
+                                      roughness 0.2
+                                    }
+                                    geometry Mesh {
+                                      url [
+                                        "../models/Wheg5-Arc.stl"
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                              DEF arc_bar_geo Pose {
+                                translation IS arc_box_offset
+                                children [
+                                  Shape {
+                                    appearance PBRAppearance {
+                                      roughness 1
+                                      metalness 0
+                                    }
+                                    geometry Box {
+                                      size IS arc_box_shape
+                                    }
+                                  }
+                                ]
+                              }
+                              DEF arc_cyl_geo Pose {
+                                translation IS tip_offset
+                                children [
+                                  Shape {
+                                    appearance PBRAppearance {
+                                      baseColor 0.4 0.4 0.4
+                                      metalness 0.2
+                                      roughness 0.2
+                                    }
+                                    geometry DEF arc_geo_test Cylinder {
+                                      height IS tip_height
+                                      radius IS tip_radius
+                                    }
+                                  }
+                                ]
+                              }
+                              HingeJoint {
+                                jointParameters HingeJointParameters {
+                                  axis 0 0 1
+                                }
+                                endPoint SolidReference {
+                                  solidName IS plate_name
+                                }
+                              }
+                            ]
+                            contactMaterial "arcs"
+                            boundingObject Group {
+                              children [
+                                USE arc_bar_geo
+                                USE arc_cyl_geo
+                              ]
+                            }
+                            physics Physics {
+                              density IS part_density
+                            }
+                          }
+                        }
+                      ]
+                      name "link(4)"
+                      boundingObject USE link_geo_pos
+                      physics Physics {
+                        density -1
+                        mass 0.001
+                      }
+                    }
+                  }
+                ]
+              }
+              Pose {
+                rotation 0 0 1 -2.5132853071795864
+                children [
+                  HingeJoint {
+                    jointParameters HingeJointParameters {
+                      axis 0 0 1
+                      anchor IS in-link_offset
+                    }
+                    endPoint DEF link_sol Solid {
+                      translation IS in-link_offset
+                      children [
+                        DEF link_geo_pos Pose {
+                          translation 0.00676148 0.0181882 0
+                          rotation 0 0 1 -0.41888530717958616
+                          children [
+                            Shape {
+                              appearance PBRAppearance {
+                                baseColor 1 0.4 0.5
+                                metalness 0
+                              }
+                              geometry DEF link_geo Box {
+                                size 0.003 0.03 0.003
+                              }
+                            }
+                          ]
+                          translationStep 0.001
+                          rotationStep 0.0261799
+                        }
+                        HingeJoint {
+                          jointParameters HingeJointParameters {
+                            axis 0 0 1
+                            anchor IS link-arc_offset
+                          }
+                          endPoint DEF arc_sol Solid {
+                            translation IS arc-whl_offset
+                            children [
+                              Transform {
+                                rotation 0.70710528118436 0.707108281185553 3.3905113482557537e-09 3.14159
+                                children [
+                                  Shape {
+                                    appearance PBRAppearance {
+                                      baseColor 0.4 0.4 0.4
+                                      metalness 0.2
+                                      roughness 0.2
+                                    }
+                                    geometry Mesh {
+                                      url [
+                                        "../models/Wheg5-Arc.stl"
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                              DEF arc_bar_geo Pose {
+                                translation IS arc_box_offset
+                                children [
+                                  Shape {
+                                    appearance PBRAppearance {
+                                      roughness 1
+                                      metalness 0
+                                    }
+                                    geometry Box {
+                                      size IS arc_box_shape
+                                    }
+                                  }
+                                ]
+                              }
+                              DEF arc_cyl_geo Pose {
+                                translation IS tip_offset
+                                children [
+                                  Shape {
+                                    appearance PBRAppearance {
+                                      baseColor 0.4 0.4 0.4
+                                      metalness 0.2
+                                      roughness 0.2
+                                    }
+                                    geometry DEF arc_geo_test Cylinder {
+                                      height IS tip_height
+                                      radius IS tip_radius
+                                    }
+                                  }
+                                ]
+                              }
+                              HingeJoint {
+                                jointParameters HingeJointParameters {
+                                  axis 0 0 1
+                                }
+                                endPoint SolidReference {
+                                  solidName IS plate_name
+                                }
+                              }
+                            ]
+                            contactMaterial "arcs"
+                            boundingObject Group {
+                              children [
+                                USE arc_bar_geo
+                                USE arc_cyl_geo
+                              ]
+                            }
+                            physics Physics {
+                              density IS part_density
+                            }
+                          }
+                        }
+                      ]
+                      name "link(3)"
+                      boundingObject USE link_geo_pos
+                      physics Physics {
+                        density -1
+                        mass 0.001
+                      }
+                    }
+                  }
+                ]
+              }
+              Pose {
+                rotation 0 0 1 2.5133
+                children [
+                  HingeJoint {
+                    jointParameters HingeJointParameters {
+                      axis 0 0 1
+                      anchor IS in-link_offset
+                    }
+                    endPoint DEF link_sol Solid {
+                      translation IS in-link_offset
+                      children [
+                        DEF link_geo_pos Pose {
+                          translation 0.00676148 0.0181882 0
+                          rotation 0 0 1 -0.41888530717958616
+                          children [
+                            Shape {
+                              appearance PBRAppearance {
+                                baseColor 1 0.4 0.5
+                                metalness 0
+                              }
+                              geometry DEF link_geo Box {
+                                size 0.003 0.03 0.003
+                              }
+                            }
+                          ]
+                          translationStep 0.001
+                          rotationStep 0.0261799
+                        }
+                        HingeJoint {
+                          jointParameters HingeJointParameters {
+                            axis 0 0 1
+                            anchor IS link-arc_offset
+                          }
+                          endPoint DEF arc_sol Solid {
+                            translation IS arc-whl_offset
+                            children [
+                              Transform {
+                                rotation 0.70710528118436 0.707108281185553 3.3905113482557537e-09 3.14159
+                                children [
+                                  Shape {
+                                    appearance PBRAppearance {
+                                      baseColor 0.4 0.4 0.4
+                                      metalness 0.2
+                                      roughness 0.2
+                                    }
+                                    geometry Mesh {
+                                      url [
+                                        "../models/Wheg5-Arc.stl"
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                              DEF arc_bar_geo Pose {
+                                translation IS arc_box_offset
+                                children [
+                                  Shape {
+                                    appearance PBRAppearance {
+                                      roughness 1
+                                      metalness 0
+                                    }
+                                    geometry Box {
+                                      size IS arc_box_shape
+                                    }
+                                  }
+                                ]
+                              }
+                              DEF arc_cyl_geo Pose {
+                                translation IS tip_offset
+                                children [
+                                  Shape {
+                                    appearance PBRAppearance {
+                                      baseColor 0.4 0.4 0.4
+                                      metalness 0.2
+                                      roughness 0.2
+                                    }
+                                    geometry DEF arc_geo_test Cylinder {
+                                      height IS tip_height
+                                      radius IS tip_radius
+                                    }
+                                  }
+                                ]
+                              }
+                              HingeJoint {
+                                jointParameters HingeJointParameters {
+                                  axis 0 0 1
+                                }
+                                endPoint SolidReference {
+                                  solidName IS plate_name
+                                }
+                              }
+                            ]
+                            contactMaterial "arcs"
+                            boundingObject Group {
+                              children [
+                                USE arc_bar_geo
+                                USE arc_cyl_geo
+                              ]
+                            }
+                            physics Physics {
+                              density IS part_density
+                            }
+                          }
+                        }
+                      ]
+                      name "link(2)"
+                      boundingObject USE link_geo_pos
+                      physics Physics {
+                        density -1
+                        mass 0.001
+                      }
+                    }
+                  }
+                ]
+              }
+              Pose {
+                rotation 0 0 1 1.2566
+                children [
+                  HingeJoint {
+                    jointParameters HingeJointParameters {
+                      axis 0 0 1
+                      anchor IS in-link_offset
+                    }
+                    endPoint DEF link_sol Solid {
+                      translation IS in-link_offset
+                      children [
+                        DEF link_geo_pos Pose {
+                          translation 0.00676148 0.0181882 0
+                          rotation 0 0 1 -0.41888530717958616
+                          children [
+                            Shape {
+                              appearance PBRAppearance {
+                                baseColor 1 0.4 0.5
+                                metalness 0
+                              }
+                              geometry DEF link_geo Box {
+                                size 0.003 0.03 0.003
+                              }
+                            }
+                          ]
+                          translationStep 0.001
+                          rotationStep 0.0261799
+                        }
+                        HingeJoint {
+                          jointParameters HingeJointParameters {
+                            axis 0 0 1
+                            anchor IS link-arc_offset
+                          }
+                          endPoint DEF arc_sol Solid {
+                            translation IS arc-whl_offset
+                            children [
+                              Transform {
+                                rotation 0.70710528118436 0.707108281185553 3.3905113482557537e-09 3.14159
+                                children [
+                                  Shape {
+                                    appearance PBRAppearance {
+                                      baseColor 0.4 0.4 0.4
+                                      metalness 0.2
+                                      roughness 0.2
+                                    }
+                                    geometry Mesh {
+                                      url [
+                                        "../models/Wheg5-Arc.stl"
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                              DEF arc_bar_geo Pose {
+                                translation IS arc_box_offset
+                                children [
+                                  Shape {
+                                    appearance PBRAppearance {
+                                      roughness 1
+                                      metalness 0
+                                    }
+                                    geometry Box {
+                                      size IS arc_box_shape
+                                    }
+                                  }
+                                ]
+                              }
+                              DEF arc_cyl_geo Pose {
+                                translation IS tip_offset
+                                children [
+                                  Shape {
+                                    appearance PBRAppearance {
+                                      baseColor 0.4 0.4 0.4
+                                      metalness 0.2
+                                      roughness 0.2
+                                    }
+                                    geometry DEF arc_geo_test Cylinder {
+                                      height IS tip_height
+                                      radius IS tip_radius
+                                    }
+                                  }
+                                ]
+                              }
+                              HingeJoint {
+                                jointParameters HingeJointParameters {
+                                  axis 0 0 1
+                                }
+                                endPoint SolidReference {
+                                  solidName IS plate_name
+                                }
+                              }
+                            ]
+                            contactMaterial "arcs"
+                            boundingObject Group {
+                              children [
+                                USE arc_bar_geo
+                                USE arc_cyl_geo
+                              ]
+                            }
+                            physics Physics {
+                              density IS part_density
+                            }
+                          }
+                        }
+                      ]
+                      name "link(1)"
+                      boundingObject USE link_geo_pos
+                      physics Physics {
+                        density -1
+                        mass 0.001
+                      }
+                    }
+                  }
+                ]
+              }
+              DEF Bar_Mech Pose {
+                rotation 0 0 1 1.62771e-06
+                children [
+                  HingeJoint {
+                    jointParameters HingeJointParameters {
+                      axis 0 0 1
+                      anchor IS in-link_offset
+                    }
+                    endPoint DEF link_sol Solid {
+                      translation IS in-link_offset
+                      children [
+                        DEF link_geo_pos Pose {
+                          translation 0.00676148 0.0181882 0
+                          rotation 0 0 1 -0.41888530717958616
+                          children [
+                            Shape {
+                              appearance PBRAppearance {
+                                baseColor 1 0.4 0.5
+                                metalness 0
+                              }
+                              geometry DEF link_geo Box {
+                                size 0.003 0.03 0.003
+                              }
+                            }
+                          ]
+                          translationStep 0.001
+                          rotationStep 0.0261799
+                        }
+                        HingeJoint {
+                          jointParameters HingeJointParameters {
+                            axis 0 0 1
+                            anchor IS link-arc_offset
+                          }
+                          endPoint DEF arc_sol Solid {
+                            translation IS arc-whl_offset
+                            children [
+                              Transform {
+                                rotation 0.70710528118436 0.707108281185553 3.3905113482557537e-09 3.14159
+                                children [
+                                  Shape {
+                                    appearance PBRAppearance {
+                                      baseColor 0.4 0.4 0.4
+                                      metalness 0.2
+                                      roughness 0.2
+                                    }
+                                    geometry Mesh {
+                                      url [
+                                        "../models/Wheg5-Arc.stl"
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                              DEF arc_bar_geo Pose {
+                                translation IS arc_box_offset
+                                children [
+                                  Shape {
+                                    appearance PBRAppearance {
+                                      roughness 1
+                                      metalness 0
+                                    }
+                                    geometry Box {
+                                      size IS arc_box_shape
+                                    }
+                                  }
+                                ]
+                              }
+                              DEF arc_cyl_geo Pose {
+                                translation IS tip_offset
+                                children [
+                                  Shape {
+                                    appearance PBRAppearance {
+                                      baseColor 0.4 0.4 0.4
+                                      metalness 0.2
+                                      roughness 0.2
+                                    }
+                                    geometry DEF arc_geo_test Cylinder {
+                                      height IS tip_height
+                                      radius IS tip_radius
+                                    }
+                                  }
+                                ]
+                              }
+                              HingeJoint {
+                                jointParameters HingeJointParameters {
+                                  axis 0 0 1
+                                }
+                                endPoint SolidReference {
+                                  solidName IS plate_name
+                                }
+                              }
+                            ]
+                            contactMaterial "arcs"
+                            boundingObject Group {
+                              children [
+                                USE arc_bar_geo
+                                USE arc_cyl_geo
+                              ]
+                            }
+                            physics Physics {
+                              density IS part_density
+                            }
+                          }
+                        }
+                      ]
+                      name "link"
+                      boundingObject USE link_geo_pos
+                      physics Physics {
+                        density -1
+                        mass 0.001
+                      }
+                    }
+                  }
+                ]
+              }
+              Shape {
+                appearance PBRAppearance {
+                }
+                geometry DEF wheel_in_geo Cylinder {
+                  height 0.003
+                  radius 0.025
+                }
+              }
+            ]
+            name IS hub_name
+            boundingObject USE wheel_in_geo
+            physics Physics {
+              density IS part_density
+            }
+          }
+        }
+        
+      ]
+    }
+  }
