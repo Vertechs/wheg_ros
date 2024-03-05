@@ -145,6 +145,7 @@ class PlannerPassthrough:
                 
                 self.diff.data = [300,0,65,0,0]
                 self.diff_pub.publish(self.diff)
+                self.diff_pub.publish(self.diff)
                 time.sleep(1.0)
                 
                 self.diff.data = [300,0,85,0,0]

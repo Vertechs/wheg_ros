@@ -1,0 +1,254 @@
+#VRML_SIM R2023b utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/objects/floors/protos/Floor.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2023b/projects/appearances/protos/FormedConcrete.proto"
+EXTERNPROTO "../protos/wheg5.proto"
+
+WorldInfo {
+  basicTimeStep 5
+  FPS 200
+  contactProperties [
+    ContactProperties {
+      material1 "arcs"
+      material2 "floor"
+      coulombFriction [
+        0.5
+      ]
+    }
+  ]
+}
+Viewpoint {
+  orientation 0.18211120220493365 0.14478237489996962 -0.9725603189261828 1.9939006495402987
+  position 0.5938644682495474 1.7084335661240506 0.866429082448779
+}
+TexturedBackground {
+}
+TexturedBackgroundLight {
+}
+Floor {
+  contactMaterial "floor"
+}
+Robot {
+  translation 0 0 0.24
+  children [
+    HingeJoint {
+      jointParameters HingeJointParameters {
+        anchor 0.15 0.02 0
+        springConstant 100
+        dampingConstant 100
+      }
+      endPoint Solid {
+        translation -0.155 -0.145 -0.025
+        children [
+          wheg5 {
+            anchor 0 -0.11 -0.01
+            in_motor_name "mi_03"
+            out_motor_name "mo_03"
+            plate_name "whl_xx(1)"
+            hub_name "hub_xx(1)"
+            in_sense_name "si_03"
+            out_sense_name "so_03"
+          }
+          Shape {
+            appearance PBRAppearance {
+            }
+            geometry DEF drive_box_geo Box {
+              size 0.15 0.124 0.068
+            }
+          }
+        ]
+        name "box3"
+        boundingObject USE drive_box_geo
+        physics Physics {
+          density -1
+          mass 0.3
+        }
+      }
+    }
+    HingeJoint {
+      jointParameters HingeJointParameters {
+        anchor 0.15 0.02 0
+        springConstant 100
+        dampingConstant 100
+      }
+      endPoint Solid {
+        translation -0.155 0.145 -0.025
+        children [
+          wheg5 {
+            anchor 0 0.07 -0.01
+            in_motor_name "mi_02"
+            out_motor_name "mo_02"
+            plate_name "whl_xx(1)"
+            hub_name "hub_xx(1)"
+            in_sense_name "si_02"
+            out_sense_name "so_02"
+          }
+          Shape {
+            appearance PBRAppearance {
+            }
+            geometry DEF drive_box_geo Box {
+              size 0.15 0.124 0.068
+            }
+          }
+        ]
+        name "box2"
+        boundingObject USE drive_box_geo
+        physics Physics {
+          density -1
+          mass 0.3
+        }
+      }
+    }
+    HingeJoint {
+      jointParameters HingeJointParameters {
+        anchor 0.15 0.02 0
+        springConstant 100
+      }
+      endPoint Solid {
+        translation 0.155 -0.145 -0.025
+        children [
+          wheg5 {
+            anchor 0 -0.11 -0.01
+            in_motor_name "mi_01"
+            out_motor_name "mo_01"
+            plate_name "whl_xx(1)"
+            hub_name "hub_xx(1)"
+            in_sense_name "si_01"
+            out_sense_name "so_01"
+          }
+          Shape {
+            appearance PBRAppearance {
+            }
+            geometry DEF drive_box_geo Box {
+              size 0.15 0.124 0.068
+            }
+          }
+        ]
+        name "box1"
+        boundingObject USE drive_box_geo
+        physics Physics {
+          density -1
+          mass 0.3
+        }
+      }
+    }
+    HingeJoint {
+      jointParameters HingeJointParameters {
+        anchor 0.15 0.02 0
+        springConstant 100
+      }
+      endPoint Solid {
+        translation 0.155 0.145 -0.025
+        children [
+          wheg5 {
+            anchor 0 0.07 -0.01
+            in_motor_name "mi_00"
+            out_motor_name "mo_00"
+            in_sense_name "si_00"
+            out_sense_name "so_00"
+          }
+          Shape {
+            appearance PBRAppearance {
+            }
+            geometry DEF drive_box_geo Box {
+              size 0.15 0.124 0.068
+            }
+          }
+        ]
+        name "box0"
+        boundingObject USE drive_box_geo
+        physics Physics {
+          density -1
+          mass 0.3
+        }
+      }
+    }
+    Solid {
+      children [
+        DEF frame_geo Group {
+          children [
+            Pose {
+              translation 0.155 0.1185 0
+              rotation 0 0 1 1.5708
+              children [
+                Shape {
+                  appearance PBRAppearance {
+                  }
+                  geometry DEF leg-box_geo Box {
+                    size 0.18 0.04 0.02
+                  }
+                }
+              ]
+            }
+            Pose {
+              translation -0.155 0.1185 0
+              rotation 0 0 1 1.5708
+              children [
+                Shape {
+                  appearance PBRAppearance {
+                  }
+                  geometry USE leg-box_geo
+                }
+              ]
+            }
+            Pose {
+              translation -0.155 -0.1185 0
+              rotation 0 0 1 1.5708
+              children [
+                Shape {
+                  appearance PBRAppearance {
+                  }
+                  geometry USE leg-box_geo
+                }
+              ]
+            }
+            Pose {
+              translation 0.155 -0.1185 0
+              rotation 0 0 1 1.5708
+              children [
+                Shape {
+                  appearance PBRAppearance {
+                  }
+                  geometry USE leg-box_geo
+                }
+              ]
+            }
+            Shape {
+              appearance PBRAppearance {
+              }
+              geometry DEF center_box_geo Box {
+                size 0.4 0.04 0.04
+              }
+            }
+          ]
+        }
+      ]
+      name "frame"
+    }
+  ]
+  boundingObject USE center_box_geo
+  physics Physics {
+    density -1
+    mass 10
+  }
+  controller "wheg_ctrl"
+}
+Solid {
+  translation -0.01 1.56553e-06 0.11
+  rotation 0 0 1 3.14159
+  children [
+    Shape {
+      appearance FormedConcrete {
+      }
+      geometry DEF BOXGEO Box {
+        size 0.45 0.15 0.2
+      }
+    }
+  ]
+  name "block"
+  boundingObject USE BOXGEO
+  physics Physics {
+  }
+}
